@@ -5,7 +5,7 @@ import { QUICK_ACTIONS, markTutorialDone, resolveEvent, runQuickAction, type Act
 import { choiceCost, getEvent, isChoiceAvailable } from '../game/events';
 import { money } from '../game/format';
 import { MISSIONS } from '../game/missions';
-import type { GameState } from '../game/types';
+import type { GameState, Gender } from '../game/types';
 import { type DialogState, gameStore, patchUi, uiStore } from '../state/store';
 import { EV, bus, toast } from './bus';
 
@@ -51,31 +51,33 @@ export function doQuickAction(id: string): boolean {
 
 // --- Diálogos de eventos ---------------------------------------------------------
 
-const SPEAKERS: Record<string, { name: string; role: string }> = {
-  concorrente: { name: 'Dona Célia', role: 'Vizinha do bairro' },
-  viral: { name: 'Júlia', role: 'Cliente fiel' },
-  crise_custos: { name: 'Sr. Augusto', role: 'Fornecedor' },
-  fornecedor: { name: 'Sr. Augusto', role: 'Fornecedor' },
-  reclamacao: { name: 'Marcos', role: 'Cliente insatisfeito' },
-  influenciador: { name: 'Lia Neon', role: 'Influenciadora digital' },
-  investidor: { name: 'Helena Prado', role: 'Investidora-anjo' },
-  data_comemorativa: { name: 'Rafa', role: 'Consultor de vendas' },
-  aumento: { name: 'Equipe', role: 'Representante dos funcionários' },
-  falha_sistema: { name: 'Téo', role: 'Técnico de informática' },
-  tendencia: { name: 'Bia', role: 'Analista de mercado' },
-  algoritmo: { name: 'Nina', role: 'Especialista em redes sociais' },
-  imprensa: { name: 'Caio Lopes', role: 'Repórter' },
-  fiscalizacao: { name: 'Fiscal Moura', role: 'Fiscalização municipal' },
-  pedido_grande: { name: 'Patrícia', role: 'Compradora corporativa' },
-  inflacao: { name: 'Sr. Augusto', role: 'Fornecedor' },
-  perfil_clonado: { name: 'Nina', role: 'Especialista em redes sociais' },
-  concorrente_fecha: { name: 'Dona Célia', role: 'Vizinha do bairro' },
-  chuva: { name: 'Seu Jorge', role: 'Zelador do prédio' },
-  parceria: { name: 'Lucas', role: 'Dono do negócio vizinho' },
+type Speaker = { name: string; role: string; gender: Gender };
+
+const SPEAKERS: Record<string, Speaker> = {
+  concorrente: { name: 'Dona Célia', role: 'Vizinha do bairro', gender: 'feminino' },
+  viral: { name: 'Júlia', role: 'Cliente fiel', gender: 'feminino' },
+  crise_custos: { name: 'Sr. Augusto', role: 'Fornecedor', gender: 'masculino' },
+  fornecedor: { name: 'Sr. Augusto', role: 'Fornecedor', gender: 'masculino' },
+  reclamacao: { name: 'Marcos', role: 'Cliente insatisfeito', gender: 'masculino' },
+  influenciador: { name: 'Lia Neon', role: 'Influenciadora digital', gender: 'feminino' },
+  investidor: { name: 'Helena Prado', role: 'Investidora-anjo', gender: 'feminino' },
+  data_comemorativa: { name: 'Rafa', role: 'Consultor de vendas', gender: 'masculino' },
+  aumento: { name: 'Sueli', role: 'Representante da equipe', gender: 'feminino' },
+  falha_sistema: { name: 'Téo', role: 'Técnico de informática', gender: 'masculino' },
+  tendencia: { name: 'Bia', role: 'Analista de mercado', gender: 'feminino' },
+  algoritmo: { name: 'Nina', role: 'Especialista em redes sociais', gender: 'feminino' },
+  imprensa: { name: 'Caio Lopes', role: 'Repórter', gender: 'masculino' },
+  fiscalizacao: { name: 'Fiscal Moura', role: 'Fiscalização municipal', gender: 'masculino' },
+  pedido_grande: { name: 'Patrícia', role: 'Compradora corporativa', gender: 'feminino' },
+  inflacao: { name: 'Sr. Augusto', role: 'Fornecedor', gender: 'masculino' },
+  perfil_clonado: { name: 'Nina', role: 'Especialista em redes sociais', gender: 'feminino' },
+  concorrente_fecha: { name: 'Dona Célia', role: 'Vizinha do bairro', gender: 'feminino' },
+  chuva: { name: 'Seu Jorge', role: 'Zelador do prédio', gender: 'masculino' },
+  parceria: { name: 'Lucas', role: 'Dono do negócio vizinho', gender: 'masculino' },
 };
 
-export function speakerFor(eventId: string) {
-  return SPEAKERS[eventId] ?? { name: 'Visitante', role: 'Visitante' };
+export function speakerFor(eventId: string): Speaker {
+  return SPEAKERS[eventId] ?? { name: 'Visitante', role: 'Visitante', gender: 'masculino' };
 }
 
 /** Abre o diálogo do evento pendente (chamado quando o visitante chega). */

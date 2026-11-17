@@ -10,7 +10,8 @@ import { findPath } from '../../game/layout';
 import { competitionLevel, valuation } from '../../game/simulation';
 import type { GameState } from '../../game/types';
 import { gameStore, patchUi, uiStore } from '../../state/store';
-import { doQuickAction, openEventDialog, say } from '../actions';
+import { doQuickAction, openEventDialog, say, speakerFor } from '../actions';
+import { withGender } from '../roleLooks';
 import { type Look, randomLook } from '../art/characters';
 import { type BuildingIcon, type BuildingSpec, billboardArt, buildingArt, buildingHeight, fenceArt, fountainArt, tentArt } from '../art/cityArt';
 import { hashRandom } from '../art/draw';
@@ -683,7 +684,7 @@ export class CityScene extends Phaser.Scene {
     if (this.visitor || !s.pendingEvent || s.world.eventDay === null || s.world.day < s.world.eventDay || ui.minute < 600 || !isBusinessHours(ui.minute) || ui.dialog || ui.panel)
       return;
     if (!getEvent(s.pendingEvent.eventId)) return;
-    const look: Look = { ...randomLook(hashRandom(s.pendingEvent.eventId)), style: 'social', accessory: 'briefcase' };
+    const look: Look = { ...withGender(randomLook(hashRandom(s.pendingEvent.eventId)), speakerFor(s.pendingEvent.eventId).gender), style: 'social', accessory: 'briefcase' };
     const start = this.tileCenter(COLS - 1, BAND1_BASE + 1);
     const actor = new Actor(this, look, start.x, start.y);
     actor.speed = 140;

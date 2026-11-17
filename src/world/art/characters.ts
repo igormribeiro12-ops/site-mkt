@@ -2,10 +2,14 @@
 // com todas as poses (andar em 4 direções, parado, sentado, trabalhando,
 // conversando, comemorando e triste).
 
-import type { HairStyle, OutfitStyle } from '../../game/types';
+import type { Gender, HairStyle, OutfitStyle } from '../../game/types';
 import { type Ctx, OUTLINE, circle, ellipse, fillRound, floorShadow, line, makeCanvas, roundRect, shade } from './draw';
 
 export interface Look {
+  /** Padrão: masculino. */
+  gender?: Gender;
+  beard?: boolean;
+  skirt?: boolean;
   skin: string;
   hairStyle: HairStyle;
   hairColor: string;
@@ -151,24 +155,49 @@ function drawHairFront(ctx: Ctx, look: Look, cx: number, hy: number) {
   }
 }
 
+const isFem = (look: Look) => look.gender === 'feminino';
+const LIPS = '#c2185b';
+
+function drawBeardFront(ctx: Ctx, look: Look, cx: number, hy: number) {
+  ctx.save();
+  ctx.strokeStyle = shade(look.hairColor, 0.08);
+  ctx.lineWidth = 3.4;
+  ctx.lineCap = 'round';
+  ctx.beginPath();
+  ctx.arc(cx, hy + 0.5, 10.6, Math.PI * 0.1, Math.PI * 0.9);
+  ctx.stroke();
+  ctx.restore();
+  fillRound(ctx, cx - 3.6, hy + 3, 7.2, 1.8, 0.9, shade(look.hairColor, 0.08), undefined);
+}
+
 function drawFace(ctx: Ctx, look: Look, cx: number, hy: number, mouth: Mouth) {
   const eye = '#2a1c18';
   const browY = hy - 3.5;
+  const fem = isFem(look);
+  const browW = fem ? 1 : 1.6;
   if (mouth === 'sad') {
-    line(ctx, cx - 7, browY - 1, cx - 3, browY + 1, shade(look.hairColor, -0.2), 1.3);
-    line(ctx, cx + 7, browY - 1, cx + 3, browY + 1, shade(look.hairColor, -0.2), 1.3);
+    line(ctx, cx - 7, browY - 1, cx - 3, browY + 1, shade(look.hairColor, -0.2), browW + 0.1);
+    line(ctx, cx + 7, browY - 1, cx + 3, browY + 1, shade(look.hairColor, -0.2), browW + 0.1);
   } else {
-    line(ctx, cx - 7, browY, cx - 3, browY - 0.6, shade(look.hairColor, -0.2), 1.2);
-    line(ctx, cx + 7, browY, cx + 3, browY - 0.6, shade(look.hairColor, -0.2), 1.2);
+    line(ctx, cx - 7, browY, cx - 3, browY - 0.6, shade(look.hairColor, -0.2), browW);
+    line(ctx, cx + 7, browY, cx + 3, browY - 0.6, shade(look.hairColor, -0.2), browW);
   }
   ellipse(ctx, cx - 5, hy + 1, 1.9, 2.5, eye);
   ellipse(ctx, cx + 5, hy + 1, 1.9, 2.5, eye);
   circle(ctx, cx - 4.4, hy + 0.2, 0.7, '#fff');
   circle(ctx, cx + 5.6, hy + 0.2, 0.7, '#fff');
-  ellipse(ctx, cx - 8, hy + 5, 2.4, 1.4, 'rgba(255, 110, 120, 0.3)');
-  ellipse(ctx, cx + 8, hy + 5, 2.4, 1.4, 'rgba(255, 110, 120, 0.3)');
-  ctx.lineWidth = 1.4;
-  ctx.strokeStyle = '#5b2a2a';
+  if (fem) {
+    // cílios
+    line(ctx, cx - 6.6, hy - 0.6, cx - 8.6, hy - 2.2, eye, 1.1);
+    line(ctx, cx - 5.6, hy - 1.3, cx - 6.6, hy - 3.1, eye, 1);
+    line(ctx, cx + 6.6, hy - 0.6, cx + 8.6, hy - 2.2, eye, 1.1);
+    line(ctx, cx + 5.6, hy - 1.3, cx + 6.6, hy - 3.1, eye, 1);
+  }
+  ellipse(ctx, cx - 8, hy + 5, 2.4, 1.4, fem ? 'rgba(255, 110, 140, 0.45)' : 'rgba(255, 110, 120, 0.3)');
+  ellipse(ctx, cx + 8, hy + 5, 2.4, 1.4, fem ? 'rgba(255, 110, 140, 0.45)' : 'rgba(255, 110, 120, 0.3)');
+  if (look.beard && !fem) drawBeardFront(ctx, look, cx, hy);
+  ctx.lineWidth = fem ? 1.7 : 1.4;
+  ctx.strokeStyle = fem ? LIPS : '#5b2a2a';
   ctx.beginPath();
   if (mouth === 'smile') ctx.arc(cx, hy + 4.5, 3.2, Math.PI * 0.18, Math.PI * 0.82);
   else if (mouth === 'neutral') {
@@ -254,8 +283,8 @@ function drawCharacter(ctx: Ctx, ox: number, oy: number, look: Look, pose: Pose)
   if (dir === 'down' || dir === 'up') {
     // Pernas
     if (pose.seat === 'front') {
-      fillRound(ctx, cx - 9, ground - 15, 8, 9, 3, look.pants);
-      fillRound(ctx, cx + 1, ground - 15, 8, 9, 3, look.pants);
+      fillRound(ctx, cx - 9, ground - 15, 8, 9, 3, look.skirt ? look.skin : look.pants);
+      fillRound(ctx, cx + 1, ground - 15, 8, 9, 3, look.skirt ? look.skin : look.pants);
       ellipse(ctx, cx - 5, ground - 5, 4.5, 2.6, SHOE, OUTLINE);
       ellipse(ctx, cx + 5, ground - 5, 4.5, 2.6, SHOE, OUTLINE);
     } else if (pose.seat === 'back') {
@@ -263,7 +292,8 @@ function drawCharacter(ctx: Ctx, ox: number, oy: number, look: Look, pose: Pose)
     } else {
       for (const side of [-1, 1]) {
         const lift = side === -1 ? Math.max(0, pose.leg) * 3 : Math.max(0, -pose.leg) * 3;
-        fillRound(ctx, cx + side * 5 - 3.5, ground - 16 - lift + bob * 0.5, 7, 13, 2.5, side === -1 ? look.pants : shade(look.pants, -0.06));
+        if (look.skirt) fillRound(ctx, cx + side * 5 - 2.5, ground - 15 - lift + bob * 0.5, 5, 12, 2.2, side === -1 ? look.skin : shade(look.skin, -0.06));
+        else fillRound(ctx, cx + side * 5 - 3.5, ground - 16 - lift + bob * 0.5, 7, 13, 2.5, side === -1 ? look.pants : shade(look.pants, -0.06));
         ellipse(ctx, cx + side * 5, ground - 3 - lift, 4.6, 2.6, SHOE, OUTLINE);
       }
     }
@@ -277,7 +307,22 @@ function drawCharacter(ctx: Ctx, ox: number, oy: number, look: Look, pose: Pose)
     ctx.fillStyle = 'rgba(0,0,0,0.08)';
     roundRect(ctx, cx - 10, torsoTop + 13, 20, 6, 4);
     ctx.fill();
-    if (!seated) fillRound(ctx, cx - 10, torsoTop + 16, 20, 3.5, 1.5, shade(look.pants, -0.1), 'rgba(0,0,0,0.25)', 0.8);
+    if (look.skirt) {
+      // saia
+      ctx.beginPath();
+      ctx.moveTo(cx - 10, torsoTop + 15);
+      ctx.lineTo(cx + 10, torsoTop + 15);
+      ctx.lineTo(cx + 13, torsoTop + 25);
+      ctx.quadraticCurveTo(cx, torsoTop + 27.5, cx - 13, torsoTop + 25);
+      ctx.closePath();
+      ctx.fillStyle = look.pants;
+      ctx.fill();
+      ctx.strokeStyle = OUTLINE;
+      ctx.lineWidth = 1;
+      ctx.stroke();
+      line(ctx, cx - 4, torsoTop + 17, cx - 5, torsoTop + 25, 'rgba(0,0,0,0.15)', 1);
+      line(ctx, cx + 4, torsoTop + 17, cx + 5, torsoTop + 25, 'rgba(0,0,0,0.15)', 1);
+    } else if (!seated) fillRound(ctx, cx - 10, torsoTop + 16, 20, 3.5, 1.5, shade(look.pants, -0.1), 'rgba(0,0,0,0.25)', 0.8);
     if (dir === 'down') drawStyleFront(ctx, look, cx, torsoTop);
     if (dir === 'down' && look.apron) {
       fillRound(ctx, cx - 7.5, torsoTop + 5, 15, 16, 3, look.apron, 'rgba(0,0,0,0.3)', 0.9);
@@ -337,6 +382,10 @@ function drawCharacter(ctx: Ctx, ox: number, oy: number, look: Look, pose: Pose)
       ellipse(ctx, cx, hy + 7, 8, 3, 'rgba(0,0,0,0.05)');
       drawFace(ctx, look, cx, hy, pose.mouth);
       drawHairFront(ctx, look, cx, hy);
+      if (isFem(look)) {
+        circle(ctx, cx - 12.4, hy + 5.6, 1.5, '#facc15', OUTLINE, 0.7);
+        circle(ctx, cx + 12.4, hy + 5.6, 1.5, '#facc15', OUTLINE, 0.7);
+      }
     } else {
       circle(ctx, cx - 12, hy + 2, 2.6, shade(look.skin, -0.05), OUTLINE);
       circle(ctx, cx + 12, hy + 2, 2.6, shade(look.skin, -0.05), OUTLINE);
@@ -360,19 +409,33 @@ function drawCharacter(ctx: Ctx, ox: number, oy: number, look: Look, pose: Pose)
     // Vista lateral (direita; esquerda é espelhada)
     if (pose.seat === 'side') {
       fillRound(ctx, cx - 3, ground - 18, 13, 6, 2.5, look.pants);
-      fillRound(ctx, cx + 6, ground - 15, 6, 11, 2.5, shade(look.pants, -0.08));
+      fillRound(ctx, cx + 6, ground - 15, 6, 11, 2.5, shade(look.skirt ? look.skin : look.pants, -0.08));
       ellipse(ctx, cx + 11, ground - 4, 4.6, 2.4, SHOE, OUTLINE);
     } else {
       const stride = pose.leg * 4;
-      fillRound(ctx, cx - 3.5 - stride, ground - 16 + bob * 0.5, 7, 13, 2.5, shade(look.pants, -0.12));
+      const legColor = look.skirt ? look.skin : look.pants;
+      const legW = look.skirt ? 5 : 7;
+      fillRound(ctx, cx - legW / 2 - stride, ground - 16 + bob * 0.5, legW, 13, 2.5, shade(legColor, -0.12));
       ellipse(ctx, cx + 1 - stride, ground - 3, 4.6, 2.5, SHOE, OUTLINE);
-      fillRound(ctx, cx - 3.5 + stride, ground - 16 + bob * 0.5, 7, 13, 2.5, look.pants);
+      fillRound(ctx, cx - legW / 2 + stride, ground - 16 + bob * 0.5, legW, 13, 2.5, legColor);
       ellipse(ctx, cx + 1 + stride, ground - 3, 4.6, 2.5, SHOE, OUTLINE);
     }
     if (look.hairStyle === 'longo') fillRound(ctx, cx - 12, hy - 4, 14, 24, 7, shade(look.hairColor, -0.1));
     fillRound(ctx, cx - 7, torsoTop, 14, 19, 6, look.shirt);
     if (look.apron) fillRound(ctx, cx + 1, torsoTop + 5, 6, 15, 2, look.apron, 'rgba(0,0,0,0.3)', 0.8);
-    if (!seated) fillRound(ctx, cx - 7, torsoTop + 16, 14, 3.5, 1.5, shade(look.pants, -0.1), 'rgba(0,0,0,0.25)', 0.8);
+    if (look.skirt) {
+      ctx.beginPath();
+      ctx.moveTo(cx - 7, torsoTop + 15);
+      ctx.lineTo(cx + 7, torsoTop + 15);
+      ctx.lineTo(cx + 10, torsoTop + 25);
+      ctx.lineTo(cx - 9, torsoTop + 25);
+      ctx.closePath();
+      ctx.fillStyle = look.pants;
+      ctx.fill();
+      ctx.strokeStyle = OUTLINE;
+      ctx.lineWidth = 1;
+      ctx.stroke();
+    } else if (!seated) fillRound(ctx, cx - 7, torsoTop + 16, 14, 3.5, 1.5, shade(look.pants, -0.1), 'rgba(0,0,0,0.25)', 0.8);
     // braço
     if (pose.arms === 'forward') {
       fillRound(ctx, cx - 1, torsoTop + 4, 12, 5.5, 2.5, shade(look.shirt, -0.08));
@@ -401,8 +464,20 @@ function drawCharacter(ctx: Ctx, ox: number, oy: number, look: Look, pose: Pose)
       ctx.lineTo(cx - 6, hy - 1);
       ctx.stroke();
     }
-    line(ctx, cx + 7, hy + 6.5, cx + 10, hy + 6, '#5b2a2a', 1.3);
+    if (isFem(look)) line(ctx, cx + 7.6, hy - 1.4, cx + 9.8, hy - 3, '#2a1c18', 1.1);
+    if (look.beard && !isFem(look)) {
+      ctx.save();
+      ctx.strokeStyle = shade(look.hairColor, 0.08);
+      ctx.lineWidth = 3.4;
+      ctx.beginPath();
+      ctx.arc(cx + 1, hy + 0.5, 10.6, Math.PI * 0.05, Math.PI * 0.6);
+      ctx.stroke();
+      ctx.restore();
+      fillRound(ctx, cx + 7, hy + 3.6, 4.5, 1.8, 0.9, shade(look.hairColor, 0.08), undefined);
+    }
+    line(ctx, cx + 7, hy + 6.5, cx + 10, hy + 6, isFem(look) ? LIPS : '#5b2a2a', isFem(look) ? 1.6 : 1.3);
     circle(ctx, cx - 3, hy + 2, 2.6, shade(look.skin, -0.05), OUTLINE);
+    if (isFem(look)) circle(ctx, cx - 3, hy + 5.8, 1.5, '#facc15', OUTLINE, 0.7);
     // cabelo de lado
     const c = look.hairColor;
     if (look.hairStyle !== 'careca') {
@@ -458,18 +533,24 @@ export const SKINS = ['#f6d2b8', '#eab995', '#d39b6a', '#b07444', '#8d5524', '#5
 export const HAIR_COLORS = ['#1f1612', '#3b2416', '#6b3f1f', '#a0522d', '#d6a75c', '#e9d38a', '#8e8e9a', '#b0303b', '#2f4f9e'];
 const SHIRTS = ['#ef4444', '#f97316', '#eab308', '#22c55e', '#14b8a6', '#0ea5e9', '#6366f1', '#a855f7', '#ec4899', '#f8fafc', '#64748b'];
 const PANTS = ['#1e293b', '#334155', '#3f3f46', '#1d4ed8', '#78350f', '#065f46', '#57534e'];
-const HAIRS: HairStyle[] = ['curto', 'longo', 'cacheado', 'coque', 'moicano', 'careca'];
+const HAIRS_F: HairStyle[] = ['longo', 'longo', 'coque', 'cacheado', 'curto'];
+const HAIRS_M: HairStyle[] = ['curto', 'curto', 'moicano', 'careca', 'cacheado'];
 const STYLES: OutfitStyle[] = ['casual', 'casual', 'esportivo', 'criativo', 'social'];
 
 export function randomLook(rand: () => number): Look {
   const pick = <T,>(list: T[]) => list[Math.floor(rand() * list.length) % list.length];
+  const gender: Gender = rand() < 0.5 ? 'feminino' : 'masculino';
+  const fem = gender === 'feminino';
   return {
+    gender,
     skin: pick(SKINS),
-    hairStyle: pick(HAIRS),
+    hairStyle: pick(fem ? HAIRS_F : HAIRS_M),
     hairColor: pick(HAIR_COLORS),
     shirt: pick(SHIRTS),
     pants: pick(PANTS),
     style: pick(STYLES),
     glasses: rand() < 0.2,
+    beard: !fem && rand() < 0.3,
+    skirt: fem && rand() < 0.35,
   };
 }

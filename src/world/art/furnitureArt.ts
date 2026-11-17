@@ -115,6 +115,22 @@ function shelfProducts(ctx: Ctx, x: number, y: number, w: number, colors: string
   }
 }
 
+function dog(ctx: Ctx, cx: number, base: number, color = '#d6a26a') {
+  for (const dx of [-6, -2, 3, 7]) fillRound(ctx, cx + dx - 1.5, base - 6, 3, 6, 1, shade(color, -0.15));
+  ellipse(ctx, cx, base - 8, 10, 6, color, OUTLINE);
+  line(ctx, cx - 9, base - 10, cx - 14, base - 17, shade(color, -0.1), 2.5);
+  circle(ctx, cx + 9, base - 15, 6, color, OUTLINE);
+  ellipse(ctx, cx + 6, base - 16, 2.5, 4.5, shade(color, -0.3));
+  circle(ctx, cx + 11, base - 16, 1, '#1f2937');
+  circle(ctx, cx + 14.5, base - 13.5, 1.4, '#1f2937');
+}
+
+function dumbbell(ctx: Ctx, x: number, y: number, color: string) {
+  line(ctx, x - 4, y, x + 4, y, '#d1d5db', 1.6);
+  fillRound(ctx, x - 7, y - 3.5, 3.5, 7, 1, color, 'rgba(0,0,0,0.35)', 0.7);
+  fillRound(ctx, x + 3.5, y - 3.5, 3.5, 7, 1, color, 'rgba(0,0,0,0.35)', 0.7);
+}
+
 const PRODUCT_COLORS = ['#ef4444', '#f59e0b', '#22c55e', '#3b82f6', '#a855f7', '#ec4899', '#14b8a6', '#facc15'];
 
 const PAINTERS: Record<string, (accent: string) => FurnitureArt> = {
@@ -534,6 +550,195 @@ const PAINTERS: Record<string, (accent: string) => FurnitureArt> = {
       circle(ctx, w / 2, -6, 4, '#111827');
       circle(ctx, w / 2, 22, 7, '#374151', '#6b7280');
       circle(ctx, w / 2, 22, 3, '#111827');
+    }),
+
+  // --- Barbearia ---------------------------------------------------------------
+  cadeira_barbeiro: () =>
+    make('cadeira_barbeiro', 28, (ctx, w) => {
+      floorShadow(ctx, w / 2, 42, 16, 5);
+      fillRound(ctx, w / 2 - 4, 28, 8, 12, 2, '#d1d5db');
+      ellipse(ctx, w / 2, 41, 13, 3.5, '#9ca3af', OUTLINE);
+      fillRound(ctx, 6, 12, w - 12, 18, 6, '#3f2a1d');
+      fillRound(ctx, 8, -16, w - 16, 32, 7, '#5b3a26');
+      for (let y = -10; y <= 8; y += 6) line(ctx, 12, y, w - 12, y, 'rgba(255,255,255,0.12)', 1);
+      line(ctx, w / 2, -16, w / 2, -19, '#d1d5db', 2);
+      fillRound(ctx, w / 2 - 8, -26, 16, 9, 4, '#3f2a1d');
+      fillRound(ctx, 1, 6, 9, 18, 3, '#d1d5db');
+      fillRound(ctx, w - 10, 6, 9, 18, 3, '#d1d5db');
+      fillRound(ctx, w / 2 - 9, 34, 18, 4, 2, '#e5e7eb');
+    }),
+  poste_barbeiro: () =>
+    make('poste_barbeiro', 46, (ctx, w) => {
+      const cx = w / 2;
+      floorShadow(ctx, cx, 42, 10, 3);
+      fillRound(ctx, cx - 7, 32, 14, 9, 3, '#d1d5db');
+      ctx.save();
+      roundRect(ctx, cx - 6, -30, 12, 64, 6);
+      ctx.clip();
+      ctx.fillStyle = '#f8fafc';
+      ctx.fillRect(cx - 6, -30, 12, 64);
+      for (let i = -2; i < 10; i++) {
+        ctx.fillStyle = i % 2 ? '#dc2626' : '#2563eb';
+        ctx.beginPath();
+        ctx.moveTo(cx - 6, -24 + i * 9);
+        ctx.lineTo(cx + 6, -32 + i * 9);
+        ctx.lineTo(cx + 6, -28 + i * 9);
+        ctx.lineTo(cx - 6, -20 + i * 9);
+        ctx.closePath();
+        ctx.fill();
+      }
+      ctx.restore();
+      roundRect(ctx, cx - 6, -30, 12, 64, 6);
+      ctx.strokeStyle = OUTLINE;
+      ctx.lineWidth = 1.2;
+      ctx.stroke();
+      ctx.fillStyle = 'rgba(255,255,255,0.35)';
+      ctx.fillRect(cx - 4, -26, 2, 56);
+      fillRound(ctx, cx - 8, -38, 16, 9, 4, '#d1d5db');
+      circle(ctx, cx, -40, 4, '#e5e7eb', OUTLINE);
+    }),
+
+  // --- Assistência técnica ----------------------------------------------------
+  vitrine_celulares: () =>
+    make('vitrine_celulares', 20, (ctx, w) => {
+      floorShadow(ctx, w / 2, 44, w / 2 - 2, 5);
+      box(ctx, 2, 6, w - 4, 16, 26, '#e5e7eb');
+      fillRound(ctx, 6, -10, w - 12, 32, 6, 'rgba(186, 230, 253, 0.5)', '#7dd3fc', 1.5);
+      const colors = ['#60a5fa', '#f472b6', '#34d399', '#fbbf24', '#a78bfa'];
+      for (let i = 0; i < 5; i++) {
+        const x = 11 + i * 15;
+        fillRound(ctx, x, -4, 10, 17, 2.5, '#1f2937');
+        fillRound(ctx, x + 1.5, -2, 7, 12, 1.5, colors[i], undefined);
+      }
+      for (let i = 0; i < 4; i++) fillRound(ctx, 14 + i * 18, 28, 12, 6, 2, i % 2 ? '#f8fafc' : '#cbd5e1');
+      ctx.fillStyle = 'rgba(255,255,255,0.5)';
+      ctx.fillRect(10, -6, 30, 3);
+    }),
+
+  // --- Pet shop ----------------------------------------------------------------
+  banho_tosa: () =>
+    make('banho_tosa', 26, (ctx, w) => {
+      floorShadow(ctx, w / 2, 44, w / 2 - 2, 5);
+      box(ctx, 2, 4, 50, 22, 18, '#cbd5e1');
+      fillRound(ctx, 7, 7, 40, 14, 4, '#93c5fd', undefined);
+      for (const [x, y, r] of [
+        [14, 8, 3],
+        [20, 6, 2.5],
+        [32, 9, 3.2],
+        [40, 7, 2.2],
+      ])
+        circle(ctx, x, y, r, '#f8fafc', 'rgba(59,130,246,0.5)', 0.8);
+      line(ctx, 46, 6, 46, -14, '#94a3b8', 3);
+      line(ctx, 46, -14, 36, -14, '#94a3b8', 3);
+      ellipse(ctx, 35, -12, 3, 2, '#64748b', OUTLINE);
+      fillRound(ctx, 58, 26, 4, 18, 1, '#6b7280');
+      fillRound(ctx, w - 10, 26, 4, 18, 1, '#6b7280');
+      box(ctx, 54, 10, w - 58, 14, 6, '#e5e7eb');
+      dog(ctx, 72, 18, '#e0b07a');
+      line(ctx, w - 8, 8, w - 8, -18, '#94a3b8', 2);
+      line(ctx, w - 8, -18, w - 16, -18, '#94a3b8', 2);
+    }),
+  prateleira_racao: () =>
+    make('prateleira_racao', 44, (ctx, w) => {
+      floorShadow(ctx, w / 2, 44, w / 2 - 2, 4);
+      box(ctx, 2, -38, w - 4, 8, 80, '#fef3c7');
+      const colors = ['#f97316', '#22c55e', '#3b82f6', '#ef4444'];
+      for (let r = 0; r < 3; r++) {
+        const y = -28 + r * 21;
+        line(ctx, 4, y + 19, w - 4, y + 19, '#d6a26a', 2.5);
+        for (let i = 0; i < 4; i++) {
+          fillRound(ctx, 8 + i * 21, y + 2, 16, 16, 3, colors[(i + r) % 4]);
+          circle(ctx, 16 + i * 21, y + 10, 3.2, 'rgba(255,255,255,0.75)');
+          circle(ctx, 16 + i * 21, y + 10, 1.4, colors[(i + r) % 4]);
+        }
+      }
+    }),
+  casinha_pet: () =>
+    make('casinha_pet', 22, (ctx, w) => {
+      floorShadow(ctx, w / 2, 42, 18, 4);
+      fillRound(ctx, 6, 8, w - 12, 32, 3, '#d97706');
+      for (let y = 14; y < 40; y += 7) line(ctx, 8, y, w - 8, y, 'rgba(0,0,0,0.12)', 1);
+      ctx.beginPath();
+      ctx.moveTo(1, 13);
+      ctx.lineTo(w / 2, -14);
+      ctx.lineTo(w - 1, 13);
+      ctx.closePath();
+      ctx.fillStyle = '#b91c1c';
+      ctx.fill();
+      ctx.strokeStyle = OUTLINE;
+      ctx.lineWidth = 1.2;
+      ctx.stroke();
+      fillRound(ctx, w / 2 - 7, 20, 14, 20, 7, '#3f2a1d', undefined);
+      fillRound(ctx, w / 2 - 8, 2, 16, 6, 2, '#fde68a');
+      fillRound(ctx, w - 18, 34, 12, 4, 2, '#f8fafc');
+      circle(ctx, w - 18, 34, 2.2, '#f8fafc');
+      circle(ctx, w - 6, 38, 2.2, '#f8fafc');
+    }),
+
+  // --- Academia ------------------------------------------------------------------
+  esteira: () =>
+    make('esteira', 34, (ctx, w) => {
+      floorShadow(ctx, w / 2, 44, 18, 4);
+      fillRound(ctx, 6, 4, w - 12, 38, 5, '#374151');
+      fillRound(ctx, 10, 6, w - 20, 32, 3, '#111827');
+      for (let y = 10; y < 36; y += 5) line(ctx, 11, y, w - 11, y, 'rgba(255,255,255,0.08)', 1);
+      line(ctx, 8, 8, 8, -16, '#9ca3af', 3);
+      line(ctx, w - 8, 8, w - 8, -16, '#9ca3af', 3);
+      fillRound(ctx, 5, -28, w - 10, 14, 3, '#4b5563');
+      screen(ctx, 11, -26, w - 22, 10, '#22d3ee');
+    }),
+  supino: () =>
+    make('supino', 30, (ctx, w) => {
+      floorShadow(ctx, w / 2, 44, w / 2 - 4, 5);
+      fillRound(ctx, 22, 30, 4, 14, 1, '#6b7280');
+      fillRound(ctx, w - 26, 30, 4, 14, 1, '#6b7280');
+      fillRound(ctx, 14, 18, w - 28, 14, 5, '#1f2937');
+      fillRound(ctx, 16, 19, w - 32, 6, 3, '#374151');
+      line(ctx, 22, 18, 22, -14, '#9ca3af', 3);
+      line(ctx, w - 22, 18, w - 22, -14, '#9ca3af', 3);
+      line(ctx, 4, -12, w - 4, -12, '#d1d5db', 3);
+      for (const x of [9, w - 9]) {
+        fillRound(ctx, x - 4, -24, 8, 24, 2, '#111827');
+        fillRound(ctx, x - 2, -20, 4, 16, 1, '#374151', undefined);
+      }
+    }),
+  rack_halteres: () =>
+    make('rack_halteres', 22, (ctx, w) => {
+      floorShadow(ctx, w / 2, 44, w / 2 - 2, 4);
+      fillRound(ctx, 6, 24, 4, 20, 1, '#4b5563');
+      fillRound(ctx, w - 10, 24, 4, 20, 1, '#4b5563');
+      box(ctx, 2, 6, w - 4, 10, 18, '#374151');
+      box(ctx, 2, -14, w - 4, 8, 14, '#4b5563');
+      const colors = ['#ef4444', '#f59e0b', '#22c55e', '#3b82f6', '#a855f7'];
+      for (let i = 0; i < 5; i++) {
+        dumbbell(ctx, 13 + i * 17, 10, colors[i]);
+        dumbbell(ctx, 13 + i * 17, -10, colors[4 - i]);
+      }
+    }),
+
+  // --- Lanchonete ----------------------------------------------------------------
+  chapa: () =>
+    make('chapa', 28, (ctx, w) => {
+      floorShadow(ctx, w / 2, 44, w / 2 - 2, 5);
+      box(ctx, 2, 4, w - 4, 22, 20, '#9ca3af');
+      fillRound(ctx, 6, 7, w - 12, 16, 3, '#1f2937');
+      for (let i = 0; i < 4; i++) {
+        ellipse(ctx, 16 + i * 17, 15, 6, 4, '#7c2d12', OUTLINE);
+        ellipse(ctx, 16 + i * 17, 14, 4.5, 2, '#9a3412');
+      }
+      fillRound(ctx, 10, 29, w - 20, 13, 3, '#4b5563');
+      for (const x of [22, 36, 50]) circle(ctx, x, 35, 3, '#111827', OUTLINE);
+      ctx.strokeStyle = 'rgba(255,255,255,0.55)';
+      ctx.lineWidth = 2;
+      for (const x of [24, 54]) {
+        ctx.beginPath();
+        ctx.moveTo(x, 4);
+        ctx.quadraticCurveTo(x - 6, -6, x, -14);
+        ctx.quadraticCurveTo(x + 6, -20, x, -26);
+        ctx.stroke();
+      }
+      line(ctx, w - 12, 10, w - 4, -6, '#6b7280', 2.5);
+      fillRound(ctx, w - 20, 8, 10, 6, 1, '#d1d5db');
     }),
 };
 

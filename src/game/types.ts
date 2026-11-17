@@ -8,7 +8,12 @@ export type SegmentId =
   | 'educacao'
   | 'comercio'
   | 'servicos'
-  | 'entretenimento';
+  | 'entretenimento'
+  | 'barbearia'
+  | 'assistencia'
+  | 'petshop'
+  | 'academia'
+  | 'lanchonete';
 
 export type DifficultyId = 'facil' | 'normal' | 'dificil';
 
@@ -196,7 +201,14 @@ export type HairStyle = 'curto' | 'longo' | 'cacheado' | 'coque' | 'moicano' | '
 export type OutfitStyle = 'casual' | 'social' | 'criativo' | 'esportivo';
 export type PersonalityId = 'criativo' | 'negociador' | 'organizado' | 'visionario';
 
+export type Gender = 'masculino' | 'feminino';
+
 export interface AvatarDesign {
+  gender: Gender;
+  /** Barba (personagem masculino). */
+  beard?: boolean;
+  /** Saia em vez de calça (personagem feminino). */
+  skirt?: boolean;
   skin: string;
   hairStyle: HairStyle;
   hairColor: string;

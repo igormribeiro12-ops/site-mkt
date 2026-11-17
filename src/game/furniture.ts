@@ -11,6 +11,8 @@ export interface Spot {
   face: Facing;
   /** O personagem senta "dentro" do móvel (chega pela casa de baixo). */
   seat?: boolean;
+  /** Animação usada no lugar (ex.: andar na esteira). */
+  pose?: string;
 }
 
 export type FurnitureCategory = 'producao' | 'atendimento' | 'decoracao' | 'equipamento';
@@ -170,7 +172,7 @@ export const FURNITURE: FurnitureDef[] = [
     type: 'mesa_clientes',
     name: 'Mesa para clientes',
     category: 'atendimento',
-    segments: ['alimentacao', 'entretenimento'],
+    segments: ['alimentacao', 'entretenimento', 'lanchonete'],
     price: 450,
     w: 1,
     h: 1,
@@ -182,7 +184,7 @@ export const FURNITURE: FurnitureDef[] = [
     type: 'vitrine_doces',
     name: 'Balcão vitrine',
     category: 'producao',
-    segments: ['alimentacao'],
+    segments: ['alimentacao', 'lanchonete'],
     price: 1500,
     w: 2,
     h: 1,
@@ -190,7 +192,7 @@ export const FURNITURE: FurnitureDef[] = [
     effects: { capacity: 25, conversion: 0.05 },
     description: 'Produtos à mostra vendem mais.',
   },
-  { type: 'geladeira', name: 'Geladeira', category: 'equipamento', segments: ['alimentacao'], price: 900, w: 1, h: 1, effects: { quality: 2 }, description: 'Ingredientes sempre frescos.' },
+  { type: 'geladeira', name: 'Geladeira', category: 'equipamento', segments: ['alimentacao', 'lanchonete', 'petshop'], price: 900, w: 1, h: 1, effects: { quality: 2 }, description: 'Ingredientes sempre frescos.' },
 
   // --- Moda ------------------------------------------------------------------------
   {
@@ -229,7 +231,7 @@ export const FURNITURE: FurnitureDef[] = [
     effects: { conversion: 0.04 },
     description: 'Mostra os looks da coleção.',
   },
-  { type: 'espelho', name: 'Espelho grande', category: 'decoracao', segments: ['moda', 'beleza'], price: 300, w: 1, h: 1, effects: { satisfaction: 1 }, description: 'Todo mundo gosta de se ver bem.' },
+  { type: 'espelho', name: 'Espelho grande', category: 'decoracao', segments: ['moda', 'beleza', 'barbearia', 'academia'], price: 300, w: 1, h: 1, effects: { satisfaction: 1 }, description: 'Todo mundo gosta de se ver bem.' },
 
   // --- Beleza ----------------------------------------------------------------------
   {
@@ -246,12 +248,12 @@ export const FURNITURE: FurnitureDef[] = [
     effects: { capacity: 45 },
     description: 'Mais clientes atendidos ao mesmo tempo.',
   },
-  { type: 'lavatorio', name: 'Lavatório', category: 'equipamento', segments: ['beleza'], price: 1100, w: 1, h: 1, effects: { quality: 2 }, description: 'Serviço completo e caprichado.' },
+  { type: 'lavatorio', name: 'Lavatório', category: 'equipamento', segments: ['beleza', 'barbearia'], price: 1100, w: 1, h: 1, effects: { quality: 2 }, description: 'Serviço completo e caprichado.' },
   {
     type: 'estante_cosmeticos',
     name: 'Prateleira de produtos',
     category: 'producao',
-    segments: ['beleza'],
+    segments: ['beleza', 'barbearia'],
     price: 800,
     w: 2,
     h: 1,
@@ -293,7 +295,7 @@ export const FURNITURE: FurnitureDef[] = [
     type: 'geladeira_bebidas',
     name: 'Geladeira de bebidas',
     category: 'producao',
-    segments: ['comercio', 'alimentacao', 'entretenimento'],
+    segments: ['comercio', 'alimentacao', 'entretenimento', 'lanchonete', 'academia', 'barbearia'],
     price: 1100,
     w: 1,
     h: 1,
@@ -319,7 +321,7 @@ export const FURNITURE: FurnitureDef[] = [
     type: 'bancada',
     name: 'Bancada de reparos',
     category: 'producao',
-    segments: ['servicos'],
+    segments: ['servicos', 'assistencia'],
     price: 1200,
     w: 2,
     h: 1,
@@ -328,8 +330,8 @@ export const FURNITURE: FurnitureDef[] = [
     effects: { capacity: 45 },
     description: 'Mais aparelhos consertados por dia.',
   },
-  { type: 'estante_pecas', name: 'Estante de peças', category: 'equipamento', segments: ['servicos'], price: 700, w: 2, h: 1, effects: { quality: 2 }, description: 'Peças certas à mão.' },
-  { type: 'painel_ferramentas', name: 'Painel de ferramentas', category: 'equipamento', segments: ['servicos'], price: 500, w: 1, h: 1, effects: { quality: 2 }, description: 'Ferramentas organizadas, serviço mais rápido.' },
+  { type: 'estante_pecas', name: 'Estante de peças', category: 'equipamento', segments: ['servicos', 'assistencia'], price: 700, w: 2, h: 1, effects: { quality: 2 }, description: 'Peças certas à mão.' },
+  { type: 'painel_ferramentas', name: 'Painel de ferramentas', category: 'equipamento', segments: ['servicos', 'assistencia'], price: 500, w: 1, h: 1, effects: { quality: 2 }, description: 'Ferramentas organizadas, serviço mais rápido.' },
 
   // --- Entretenimento --------------------------------------------------------------
   {
@@ -356,7 +358,118 @@ export const FURNITURE: FurnitureDef[] = [
     effects: { capacity: 30, satisfaction: 1 },
     description: 'Clientes ficam mais tempo e voltam.',
   },
-  { type: 'caixa_som', name: 'Caixas de som', category: 'decoracao', segments: ['entretenimento'], price: 1200, w: 1, h: 1, effects: { conversion: 0.05 }, description: 'Música que atrai quem passa.' },
+  { type: 'caixa_som', name: 'Caixas de som', category: 'decoracao', segments: ['entretenimento', 'barbearia', 'academia'], price: 1200, w: 1, h: 1, effects: { conversion: 0.05 }, description: 'Música que atrai quem passa.' },
+
+  // --- Barbearia -------------------------------------------------------------------
+  {
+    type: 'cadeira_barbeiro',
+    name: 'Cadeira de barbeiro',
+    category: 'producao',
+    segments: ['barbearia'],
+    price: 1400,
+    w: 1,
+    h: 1,
+    customer: { dx: 0, dy: 0, face: 'up', seat: true },
+    staff: { dx: 1, dy: 0, face: 'left' },
+    roles: ['atendente', 'vendedor', 'desenvolvedor'],
+    effects: { capacity: 45 },
+    description: 'Clássica, reclinável e confortável: mais cortes por dia.',
+  },
+  {
+    type: 'poste_barbeiro',
+    name: 'Poste de barbearia',
+    category: 'decoracao',
+    segments: ['barbearia'],
+    price: 450,
+    w: 1,
+    h: 1,
+    effects: { conversion: 0.04, satisfaction: 1 },
+    description: 'O símbolo listrado que avisa: aqui tem barbearia.',
+  },
+
+  // --- Assistência técnica ---------------------------------------------------------
+  {
+    type: 'vitrine_celulares',
+    name: 'Vitrine de acessórios',
+    category: 'producao',
+    segments: ['assistencia'],
+    price: 1000,
+    w: 2,
+    h: 1,
+    customer: { dx: 0, dy: 1, face: 'up' },
+    effects: { capacity: 25, conversion: 0.04 },
+    description: 'Capas, películas e carregadores: vendas extras no balcão.',
+  },
+
+  // --- Pet shop --------------------------------------------------------------------
+  {
+    type: 'banho_tosa',
+    name: 'Mesa de banho e tosa',
+    category: 'producao',
+    segments: ['petshop'],
+    price: 1500,
+    w: 2,
+    h: 1,
+    staff: { dx: 0, dy: 1, face: 'up' },
+    roles: ['atendente', 'desenvolvedor', 'vendedor'],
+    effects: { capacity: 50 },
+    description: 'Banheira e mesa de tosa: mais pets atendidos por dia.',
+  },
+  {
+    type: 'prateleira_racao',
+    name: 'Prateleira de rações',
+    category: 'producao',
+    segments: ['petshop'],
+    price: 900,
+    w: 2,
+    h: 1,
+    customer: { dx: 0, dy: 1, face: 'up' },
+    effects: { capacity: 40 },
+    description: 'Rações, petiscos e brinquedos à venda.',
+  },
+  { type: 'casinha_pet', name: 'Casinha de cachorro', category: 'decoracao', segments: ['petshop'], price: 400, w: 1, h: 1, effects: { satisfaction: 2 }, description: 'Os pets (e os donos) adoram.' },
+
+  // --- Academia --------------------------------------------------------------------
+  {
+    type: 'esteira',
+    name: 'Esteira',
+    category: 'producao',
+    segments: ['academia'],
+    price: 1600,
+    w: 1,
+    h: 1,
+    customer: { dx: 0, dy: 0, face: 'up', seat: true, pose: 'walk-up' },
+    effects: { capacity: 35 },
+    description: 'Aeróbico para os alunos: mais gente treinando ao mesmo tempo.',
+  },
+  {
+    type: 'supino',
+    name: 'Banco de supino',
+    category: 'producao',
+    segments: ['academia'],
+    price: 1300,
+    w: 2,
+    h: 1,
+    customer: { dx: 0, dy: 0, face: 'down', seat: true, pose: 'cheer' },
+    effects: { capacity: 30 },
+    description: 'Musculação completa com barra e anilhas.',
+  },
+  { type: 'rack_halteres', name: 'Suporte de halteres', category: 'equipamento', segments: ['academia'], price: 900, w: 2, h: 1, effects: { quality: 3 }, description: 'Pesos variados para todos os níveis.' },
+
+  // --- Lanchonete ------------------------------------------------------------------
+  {
+    type: 'chapa',
+    name: 'Chapa de lanches',
+    category: 'producao',
+    segments: ['lanchonete'],
+    price: 1700,
+    w: 2,
+    h: 1,
+    staff: { dx: 0, dy: 1, face: 'up' },
+    roles: ['atendente', 'desenvolvedor', 'vendedor'],
+    effects: { capacity: 80 },
+    description: 'Hambúrgueres e lanches saindo sem parar.',
+  },
 ];
 
 export function getFurniture(type: string): FurnitureDef | undefined {
@@ -389,6 +502,20 @@ export function starterLayout(segment: SegmentId): { type: string; x: number; y:
     comercio: [{ type: 'gondola', x: 5, y: 0 }],
     servicos: [{ type: 'bancada', x: 5, y: 0 }],
     entretenimento: [{ type: 'fliperama', x: 5, y: 0 }],
+    barbearia: [
+      { type: 'cadeira_barbeiro', x: 4, y: 1 },
+      { type: 'poste_barbeiro', x: 8, y: 0 },
+    ],
+    assistencia: [{ type: 'bancada', x: 5, y: 0 }],
+    petshop: [{ type: 'banho_tosa', x: 5, y: 0 }],
+    academia: [
+      { type: 'esteira', x: 5, y: 0 },
+      { type: 'esteira', x: 6, y: 0 },
+    ],
+    lanchonete: [
+      { type: 'chapa', x: 5, y: 0 },
+      { type: 'mesa_clientes', x: 2, y: 4 },
+    ],
   };
   return [...base, ...extra[segment]];
 }

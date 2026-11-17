@@ -12,7 +12,7 @@ import {
   Rocket,
   Store,
   User,
-  Wand2,
+  WandSparkles,
 } from 'lucide-react';
 import { CompanyLogo, FONTS, LogoMark, SHAPES } from '../../components/CompanyLogo';
 import { Button } from '../../components/ui/Button';
@@ -32,12 +32,15 @@ import {
 } from '../../game/data';
 import { setupCosts } from '../../game/engine';
 import { money, pct } from '../../game/format';
-import { generateSlogans } from '../../game/slogans';
+import { suggestAll, suggestDescriptions, suggestDifferentials, suggestNames, suggestProducts, suggestSlogans } from '../../game/ideas';
 import type { DifficultyId, LogoDesign, SegmentId, SetupDraft } from '../../game/types';
 import { cn } from '../../lib/cn';
 import { LOGO_ICONS } from '../../lib/logoIcons';
 import { useGame } from '../../state/GameContext';
 import { CharacterCreator } from './CharacterCreator';
+import { IdeaChips } from './IdeaChips';
+
+type IdeaField = 'name' | 'product' | 'slogan' | 'description' | 'differential';
 
 const STEPS = [
   { title: 'Personagem', icon: User },
@@ -94,7 +97,7 @@ function StatBar({ label, value, display }: { label: string; value: number; disp
 export function SetupWizard({ onExit, onStart }: { onExit: () => void; onStart: () => void }) {
   const { draft, setDraft, startGame, resetDraft } = useGame();
   const [errors, setErrors] = useState<Errors>({});
-  const [slogans, setSlogans] = useState<string[]>([]);
+  const [ideas, setIdeas] = useState<Record<IdeaField, string[]>>({ name: [], product: [], slogan: [], description: [], differential: [] });
   const step = draft.step;
   const costs = setupCosts(draft);
   const seg = draft.segment ? getSegment(draft.segment) : null;
@@ -211,35 +214,51 @@ export function SetupWizard({ onExit, onStart }: { onExit: () => void; onStart: 
   }
 
   if (step === 2 && seg) {
+    const segment = seg.id;
+    const ask = (field: IdeaField, list: string[]) => setIdeas((prev) => ({ ...prev, [field]: list }));
     content = (
       <div className="space-y-5">
+        <div className="flex flex-wrap items-center gap-3 rounded-2xl border border-violet-400/25 bg-violet-500/[0.07] p-3.5">
+          <span className="flex size-9 items-center justify-center rounded-xl bg-violet-500/20 text-violet-200">
+            <WandSparkles className="size-5" aria-hidden />
+          </span>
+          <div className="min-w-0 flex-1">
+            <p className="text-sm font-bold text-white">Assistente de ideias</p>
+            <p className="text-xs text-slate-400">Sem inspiração? Peça sugestões em cada campo ou preencha tudo de uma vez — depois é só ajustar do seu jeito.</p>
+          </div>
+          <Button
+            size="sm"
+            variant="outline"
+            onClick={() => {
+              const filled = suggestAll(segment, draft, draft.playerName, draft.avatar.gender);
+              set(filled);
+            }}
+          >
+            Preencher campos vazios
+          </Button>
+        </div>
         <div className="grid gap-5 sm:grid-cols-2">
-          <TextField id="company-name" label="Nome da empresa" required autoFocus value={draft.name} maxLength={32} placeholder="Ex.: Nexa, Doce Lar, Vibe Store" error={errors.name} onChange={(e) => set({ name: e.target.value })} />
-          <TextField id="company-product" label="Produto principal" required value={draft.product} maxLength={60} placeholder={`Ex.: ${seg.productExample}`} error={errors.product} onChange={(e) => set({ product: e.target.value })} />
+          <div>
+            <TextField id="company-name" label="Nome da empresa" required autoFocus value={draft.name} maxLength={32} placeholder="Ex.: Nexa, Doce Lar, Vibe Store" error={errors.name} onChange={(e) => set({ name: e.target.value })} />
+            <IdeaChips label="Sugerir nomes" ideas={ideas.name} value={draft.name} onGenerate={() => ask('name', suggestNames(segment, draft.playerName, draft.avatar.gender, 4))} onPick={(v) => set({ name: v })} />
+          </div>
+          <div>
+            <TextField id="company-product" label="Produto principal" required value={draft.product} maxLength={60} placeholder={`Ex.: ${seg.productExample}`} error={errors.product} onChange={(e) => set({ product: e.target.value })} />
+            <IdeaChips label="Sugerir produtos" ideas={ideas.product} value={draft.product} onGenerate={() => ask('product', suggestProducts(segment, 4))} onPick={(v) => set({ product: v })} />
+          </div>
         </div>
         <div>
           <TextField id="company-slogan" label="Slogan" required value={draft.slogan} maxLength={70} placeholder="Uma frase curta e marcante" error={errors.slogan} onChange={(e) => set({ slogan: e.target.value })} />
-          <div className="mt-2 flex flex-wrap items-center gap-2">
-            <Button size="sm" variant="outline" icon={<Wand2 className="size-4" aria-hidden />} onClick={() => setSlogans(generateSlogans(draft.name, draft.segment, 4))}>
-              {slogans.length ? 'Outras ideias' : 'Gerar ideias de slogan'}
-            </Button>
-            {slogans.map((s) => (
-              <button
-                key={s}
-                type="button"
-                onClick={() => set({ slogan: s })}
-                className={cn(
-                  'rounded-full border px-3 py-1 text-xs font-medium transition',
-                  draft.slogan === s ? 'border-violet-400 bg-violet-500/20 text-white' : 'border-white/10 text-slate-300 hover:border-violet-400/50 hover:text-white',
-                )}
-              >
-                {s}
-              </button>
-            ))}
-          </div>
+          <IdeaChips label="Gerar ideias de slogan" ideas={ideas.slogan} value={draft.slogan} onGenerate={() => ask('slogan', suggestSlogans(segment, draft.name, 4))} onPick={(v) => set({ slogan: v })} />
         </div>
-        <TextArea id="company-description" label="Descrição da empresa" required value={draft.description} maxLength={200} placeholder="O que a empresa faz e para quem" error={errors.description} onChange={(e) => set({ description: e.target.value })} />
-        <TextArea id="company-differential" label="Diferencial competitivo" required value={draft.differential} maxLength={160} placeholder="Por que o cliente escolheria você e não o concorrente?" error={errors.differential} onChange={(e) => set({ differential: e.target.value })} />
+        <div>
+          <TextArea id="company-description" label="Descrição da empresa" required value={draft.description} maxLength={200} placeholder="O que a empresa faz e para quem" error={errors.description} onChange={(e) => set({ description: e.target.value })} />
+          <IdeaChips block label="Sugerir descrições" ideas={ideas.description} value={draft.description} onGenerate={() => ask('description', suggestDescriptions(segment, draft.name, draft.product, 3))} onPick={(v) => set({ description: v })} />
+        </div>
+        <div>
+          <TextArea id="company-differential" label="Diferencial competitivo" required value={draft.differential} maxLength={160} placeholder="Por que o cliente escolheria você e não o concorrente?" error={errors.differential} onChange={(e) => set({ differential: e.target.value })} />
+          <IdeaChips block label="Sugerir diferenciais" ideas={ideas.differential} value={draft.differential} onGenerate={() => ask('differential', suggestDifferentials(segment, 4))} onPick={(v) => set({ differential: v })} />
+        </div>
         <TipCard title={`Conheça sua persona: ${seg.persona.name}, ${seg.persona.age} anos`}>
           {seg.persona.description} {seg.persona.channels}
         </TipCard>

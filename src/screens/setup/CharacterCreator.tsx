@@ -1,7 +1,7 @@
 import { useEffect, useRef, useState } from 'react';
-import { Dices, Lightbulb, Handshake, ClipboardList, Telescope } from 'lucide-react';
+import { ClipboardList, Dices, Handshake, Lightbulb, Mars, Telescope, Venus } from 'lucide-react';
 import type { LucideIcon } from 'lucide-react';
-import type { AvatarDesign, HairStyle, OutfitStyle, PersonalityId } from '../../game/types';
+import type { AvatarDesign, Gender, HairStyle, OutfitStyle, PersonalityId } from '../../game/types';
 import { cn } from '../../lib/cn';
 import { HAIR_COLORS, SKINS, drawCharacterFrameTo, randomLook } from '../../world/art/characters';
 import { hashRandom } from '../../world/art/draw';
@@ -23,7 +23,7 @@ const STYLES: { id: OutfitStyle; label: string }[] = [
 ];
 
 const SHIRTS = ['#6d5dfc', '#ef4444', '#f97316', '#eab308', '#22c55e', '#14b8a6', '#0ea5e9', '#ec4899', '#f8fafc', '#1f2937'];
-const PANTS = ['#2f3a56', '#1e293b', '#3f3f46', '#1d4ed8', '#78350f', '#065f46', '#e5e7eb'];
+const PANTS = ['#2f3a56', '#1e293b', '#3f3f46', '#1d4ed8', '#78350f', '#065f46', '#e5e7eb', '#db2777', '#7c3aed'];
 
 export const PERSONALITIES: { id: PersonalityId; label: string; bonus: string; icon: LucideIcon }[] = [
   { id: 'criativo', label: 'Criativo', bonus: '+10% de alcance no marketing', icon: Lightbulb },
@@ -122,9 +122,25 @@ function Pills<T extends string>({ label, options, value, onChange }: { label: s
 
 export function CharacterCreator({ avatar, onChange }: { avatar: AvatarDesign; onChange: (a: AvatarDesign) => void }) {
   const set = (patch: Partial<AvatarDesign>) => onChange({ ...avatar, ...patch });
+  const fem = avatar.gender === 'feminino';
+  const setGender = (gender: Gender) => {
+    if (gender === avatar.gender) return;
+    // Ajusta o cabelo para um padrão comum ao trocar (pode ser mudado depois).
+    const hairStyle: HairStyle =
+      gender === 'feminino' ? (['curto', 'moicano', 'careca'].includes(avatar.hairStyle) ? 'longo' : avatar.hairStyle) : avatar.hairStyle === 'longo' ? 'curto' : avatar.hairStyle;
+    onChange({ ...avatar, gender, hairStyle, beard: gender === 'masculino' ? avatar.beard : false, skirt: gender === 'feminino' ? avatar.skirt : false });
+  };
   const randomize = () => {
     const r = randomLook(hashRandom(String(Math.random())));
-    onChange({ ...avatar, skin: r.skin, hairStyle: r.hairStyle, hairColor: r.hairColor, shirt: SHIRTS[Math.floor(Math.random() * SHIRTS.length)], pants: r.pants, style: r.style });
+    onChange({
+      ...avatar,
+      skin: r.skin,
+      hairColor: r.hairColor,
+      shirt: SHIRTS[Math.floor(Math.random() * SHIRTS.length)],
+      pants: r.pants,
+      style: r.style,
+      hairStyle: fem ? (['curto', 'moicano', 'careca'].includes(r.hairStyle) ? 'longo' : r.hairStyle) : r.hairStyle === 'longo' ? 'curto' : r.hairStyle,
+    });
   };
 
   return (
@@ -139,12 +155,63 @@ export function CharacterCreator({ avatar, onChange }: { avatar: AvatarDesign; o
         </button>
       </div>
       <div className="space-y-4">
+        <div>
+          <p className="mb-1.5 text-xs font-semibold uppercase tracking-wider text-slate-400">Sexo</p>
+          <div className="grid grid-cols-2 gap-2" role="radiogroup" aria-label="Sexo">
+            {(
+              [
+                ['masculino', 'Masculino', Mars],
+                ['feminino', 'Feminino', Venus],
+              ] as const
+            ).map(([id, label, Icon]) => (
+              <button
+                key={id}
+                type="button"
+                role="radio"
+                aria-checked={avatar.gender === id}
+                onClick={() => setGender(id)}
+                className={cn(
+                  'flex items-center justify-center gap-2 rounded-2xl border px-3 py-2.5 text-sm font-bold transition',
+                  avatar.gender === id
+                    ? id === 'feminino'
+                      ? 'border-pink-400 bg-pink-500/15 text-white'
+                      : 'border-sky-400 bg-sky-500/15 text-white'
+                    : 'border-white/10 text-slate-300 hover:border-white/25',
+                )}
+              >
+                <Icon className={cn('size-5', id === 'feminino' ? 'text-pink-300' : 'text-sky-300')} aria-hidden />
+                {label}
+              </button>
+            ))}
+          </div>
+        </div>
         <Swatches label="Tom de pele" colors={SKINS} value={avatar.skin} onChange={(skin) => set({ skin })} />
         <Pills label="Cabelo" options={HAIRS} value={avatar.hairStyle} onChange={(hairStyle) => set({ hairStyle })} />
         <Swatches label="Cor do cabelo" colors={HAIR_COLORS} value={avatar.hairColor} onChange={(hairColor) => set({ hairColor })} />
         <Pills label="Estilo" options={STYLES} value={avatar.style} onChange={(style) => set({ style })} />
         <Swatches label="Cor da roupa" colors={SHIRTS} value={avatar.shirt} onChange={(shirt) => set({ shirt })} />
-        <Swatches label="Calça" colors={PANTS} value={avatar.pants} onChange={(pants) => set({ pants })} />
+        {fem ? (
+          <Pills
+            label="Roupa de baixo"
+            options={[
+              { id: 'calca', label: 'Calça' },
+              { id: 'saia', label: 'Saia' },
+            ]}
+            value={avatar.skirt ? 'saia' : 'calca'}
+            onChange={(v) => set({ skirt: v === 'saia' })}
+          />
+        ) : (
+          <Pills
+            label="Barba"
+            options={[
+              { id: 'sem', label: 'Sem barba' },
+              { id: 'com', label: 'Com barba' },
+            ]}
+            value={avatar.beard ? 'com' : 'sem'}
+            onChange={(v) => set({ beard: v === 'com' })}
+          />
+        )}
+        <Swatches label={avatar.skirt && fem ? 'Cor da saia' : 'Cor da calça'} colors={PANTS} value={avatar.pants} onChange={(pants) => set({ pants })} />
         <div>
           <p className="mb-1.5 text-xs font-semibold uppercase tracking-wider text-slate-400">Personalidade empreendedora</p>
           <div className="grid gap-2 sm:grid-cols-2" role="radiogroup" aria-label="Personalidade empreendedora">

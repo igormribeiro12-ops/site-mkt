@@ -1,9 +1,15 @@
 import { describe, expect, it } from 'vitest';
 import { balanced, draft, passive, play, reckless } from '../test/bots';
+import { PAINTED_TYPES } from '../world/art/furnitureArt';
 import { ACHIEVEMENTS } from './achievements';
+import { catalogFor } from './furniture';
+import { suggestAll, suggestDifferentials, suggestNames, suggestProducts } from './ideas';
+import { canPlace } from './layout';
+import { rngFor } from './rng';
 import { MONTH_LIMIT, SEGMENTS, STARTING_CAPITAL } from './data';
 import {
   advanceMonth,
+  buyFurniture,
   computeLevel,
   createGame,
   defeatReason,
@@ -209,5 +215,38 @@ describe('pontuação e conquistas', () => {
     }
     const r = play('moda', balanced);
     expect(Object.keys(r.state.achievements)).toEqual(expect.arrayContaining(['primeira_venda', 'primeiro_cliente', 'receita_5k', 'clientes_100']));
+  });
+});
+
+describe('tipos de negócio, móveis e ideias', () => {
+  it.each(SEGMENTS.map((s) => s.id))('%s: escritório inicial válido, móveis com arte e compra possível', (segment) => {
+    const g = createGame(draft(segment), 3);
+    // cada móvel inicial respeita as regras de espaço (nada bloqueado)
+    for (const item of g.world.furniture) expect(canPlace(g.world.furniture, g.infraLevel, item.type, item.x, item.y, item.id).ok).toBe(true);
+    // todo item do catálogo do segmento tem desenho
+    for (const def of catalogFor(segment)) expect(PAINTED_TYPES).toContain(def.type);
+    // o segmento tem móveis próprios (além dos comuns a todos)
+    expect(catalogFor(segment).filter((d) => d.segments !== 'all').length).toBeGreaterThanOrEqual(2);
+    const bought = buyFurniture({ ...g, cash: 50_000 }, 'planta', 2, 2);
+    expect(bought.ok).toBe(true);
+  });
+
+  it.each(SEGMENTS.map((s) => s.id))('%s: o assistente sugere nome, produto, slogan, descrição e diferencial', (segment) => {
+    const rnd = rngFor(7, 1, 1);
+    expect(suggestNames(segment, 'Ana', 'feminino', 4, rnd).length).toBeGreaterThanOrEqual(3);
+    expect(suggestProducts(segment, 4, rnd)).toHaveLength(4);
+    expect(suggestDifferentials(segment, 4, rnd)).toHaveLength(4);
+    const all = suggestAll(segment, { name: '', product: '', slogan: '', description: '', differential: '' }, 'Ana', 'feminino', rnd);
+    for (const v of Object.values(all)) expect(v.trim().length).toBeGreaterThan(2);
+    expect(all.description.length).toBeLessThanOrEqual(200);
+    expect(all.name.length).toBeLessThanOrEqual(32);
+    // o que já foi escrito é mantido
+    expect(suggestAll(segment, { ...all, name: 'Minha Marca' }, 'Ana').name).toBe('Minha Marca');
+  });
+
+  it('nome com o dono usa o artigo certo', () => {
+    const names = Array.from({ length: 30 }, (_, i) => suggestNames('lanchonete', 'Pedro', 'masculino', 6, rngFor(i, 1, 1))).flat();
+    expect(names.some((n) => n.endsWith('do Pedro'))).toBe(true);
+    expect(names.some((n) => n.endsWith('da Pedro'))).toBe(false);
   });
 });

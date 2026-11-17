@@ -49,7 +49,7 @@ export function loadGame(): GameState | null {
   const data = read<GameState>(SAVE_KEY);
   if (!data || data.version !== 1 || !data.company || !data.player || !data.world || !data.avatar) return null;
   if (!getSegment(data.company.segment)) return null;
-  return data;
+  return { ...data, avatar: { ...DEFAULT_AVATAR, ...data.avatar } };
 }
 
 export function saveGame(state: GameState): boolean {

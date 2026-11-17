@@ -18,12 +18,15 @@ const looks: Look[] = [
   { skin: '#8d5524', hairStyle: 'cacheado', hairColor: '#1f1612', shirt: '#ec4899', pants: '#1e293b', style: 'criativo', glasses: true },
   { skin: '#f6d2b8', hairStyle: 'longo', hairColor: '#d6a75c', shirt: '#14b8a6', pants: '#334155', style: 'esportivo', apron: '#f97316' },
   { skin: '#b07444', hairStyle: 'coque', hairColor: '#6b3f1f', shirt: '#1e3a8a', pants: '#1f2937', style: 'social', accessory: 'briefcase' },
+  { gender: 'feminino', skin: '#eab995', hairStyle: 'longo', hairColor: '#3b2416', shirt: '#ec4899', pants: '#7c3aed', style: 'casual', skirt: true },
+  { gender: 'masculino', beard: true, skin: '#d39b6a', hairStyle: 'curto', hairColor: '#1f1612', shirt: '#0ea5e9', pants: '#1e293b', style: 'esportivo' },
 ];
 const r = hashRandom('x');
 for (let i = 0; i < 2; i++) looks.push(randomLook(r));
 for (const l of looks) add(renderCharacterSheet(l), 1);
 root.appendChild(Object.assign(document.createElement('div'), { textContent: FRAMES.map((f) => f.name).join(' · '), style: 'font-size:9px;opacity:.6' }));
-for (const t of PAINTED_TYPES) {
+const only = new URLSearchParams(location.search).get('only');
+for (const t of PAINTED_TYPES.filter((x) => !only || only.split(',').includes(x))) {
   const a = renderFurniture(t, '#7c3aed');
   if (a) add(a.canvas, 1, t);
 }

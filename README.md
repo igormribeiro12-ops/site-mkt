@@ -37,9 +37,9 @@ A pasta `dist/` é um site estático: pode ser publicada no GitHub Pages, Netlif
 
 ### O começo
 
-1. **Personagem:** nome, tom de pele, cabelo, cor do cabelo, estilo, roupa e **personalidade empreendedora** (criativo, negociador, organizado ou visionário — cada uma dá um bônus).
-2. **Empresa:** mercado (tecnologia, alimentação, moda, beleza, educação, comércio, serviços ou entretenimento), nome, slogan (com gerador), identidade visual e operação inicial.
-3. **Escritório inicial:** mesa com computador, cadeira, porta, janelas, decoração e os primeiros móveis do seu tipo de negócio (fogão e mesa para restaurante, arara para loja de roupas, cadeira de salão para beleza…).
+1. **Personagem:** nome, sexo (masculino ou feminino, com opção de barba ou saia), tom de pele, cabelo, cor do cabelo, estilo, roupa e **personalidade empreendedora** (criativo, negociador, organizado ou visionário — cada uma dá um bônus). Os moradores, clientes e funcionários também são homens e mulheres.
+2. **Empresa:** 13 tipos de negócio — tecnologia, alimentação, lanchonete, moda, beleza, barbearia, pet shop, academia, educação, comércio, assistência técnica, serviços e entretenimento — com nome, produto, slogan, descrição e diferencial. O **assistente de ideias** sugere cada campo (ou preenche todos de uma vez) sem usar internet.
+3. **Escritório inicial:** mesa com computador, cadeira, porta, janelas, decoração e os primeiros móveis do seu tipo de negócio (fogão e mesa para restaurante, chapa para lanchonete, cadeira de barbeiro, banho e tosa, esteiras de academia, bancada de reparos…).
 4. A **mentora** do bairro explica o básico e as **missões** guiam os primeiros passos.
 
 ### O dia a dia
