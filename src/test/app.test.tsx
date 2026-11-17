@@ -1,225 +1,184 @@
 import { render, screen, within } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
-import { MemoryRouter } from 'react-router-dom';
-import { describe, expect, it, vi } from 'vitest';
+import { describe, expect, it } from 'vitest';
 import { App } from '../App';
-import { STORAGE_KEY } from '../lib/storage';
-import { makeCompleteProject } from './fixtures';
-import type { Project } from '../types';
+import { createGame } from '../game/engine';
+import type { GameState } from '../game/types';
+import { SAVE_KEY } from '../state/storage';
+import { balanced, draft, play } from './bots';
 
-function renderApp(path = '/') {
-  return render(
-    <MemoryRouter initialEntries={[path]}>
-      <App />
-    </MemoryRouter>,
-  );
+function seed(state: GameState) {
+  window.localStorage.setItem(SAVE_KEY, JSON.stringify(state));
 }
 
-function stored(): Project {
-  return JSON.parse(window.localStorage.getItem(STORAGE_KEY) ?? 'null');
+function saved(): GameState {
+  return JSON.parse(window.localStorage.getItem(SAVE_KEY) ?? 'null');
 }
 
-function seed(project: Project) {
-  window.localStorage.setItem(STORAGE_KEY, JSON.stringify(project));
+function readyGame(overrides: Partial<GameState> = {}): GameState {
+  return { ...createGame({ ...draft('moda'), playerName: 'Ana', name: 'Vibe Store' }, 7), tutorialDone: true, ...overrides };
 }
 
-const h1 = (name: string | RegExp) => screen.findByRole('heading', { level: 1, name });
-
-async function fillCompanyStep(user: ReturnType<typeof userEvent.setup>) {
-  await user.type(screen.getByRole('textbox', { name: /Nome da empresa/ }), 'Doce Encanto');
-  await user.type(screen.getByRole('textbox', { name: /fundador/i }), 'Maria');
-  await user.click(screen.getByRole('radio', { name: /Alimentação/ }));
-  await user.type(screen.getByRole('textbox', { name: /Descrição da empresa/ }), 'Confeitaria on-line de doces artesanais.');
-  await user.type(screen.getByRole('textbox', { name: /Qual problema/ }), 'Falta de doces caseiros no bairro.');
-  await user.type(screen.getByRole('textbox', { name: /Qual produto ou serviço/ }), 'Brigadeiros gourmet.');
-  await user.type(screen.getByRole('textbox', { name: /diferencial competitivo/ }), 'Receitas da família.');
-}
-
-describe('navegação entre etapas', () => {
-  it('a tela inicial leva à etapa 1', async () => {
+describe('tela inicial', () => {
+  it('mostra título, frase e botões', async () => {
     const user = userEvent.setup();
-    renderApp();
-    expect(screen.getByRole('heading', { level: 1, name: /Sua ideia pode se tornar uma empresa/ })).toBeInTheDocument();
-    expect(screen.getByText(/Crie sua marca, desenvolva seu negócio/)).toBeInTheDocument();
-    await user.click(screen.getAllByRole('button', { name: /Criar minha empresa/ })[0]);
-    expect(await h1('Criação da empresa')).toBeInTheDocument();
-  });
-
-  it('bloqueia o avanço quando faltam campos obrigatórios', async () => {
-    const user = userEvent.setup();
-    renderApp('/etapa/empresa');
-    await user.click(screen.getByRole('button', { name: /Salvar e continuar/ }));
-    expect(screen.getByText('Dê um nome para a sua empresa.')).toBeInTheDocument();
-    expect(screen.getByText('Escolha o segmento de atuação.')).toBeInTheDocument();
-    expect(screen.getByRole('heading', { level: 1, name: 'Criação da empresa' })).toBeInTheDocument();
-    expect(screen.getByRole('alert')).toHaveTextContent(/Faltam 7 itens obrigatórios/);
-  });
-
-  it('avança, volta e mantém os dados; salva no navegador', async () => {
-    const user = userEvent.setup();
-    renderApp('/');
-    await user.click(screen.getAllByRole('button', { name: /Criar minha empresa/ })[0]);
-    await h1('Criação da empresa');
-    await fillCompanyStep(user);
-
-    expect(stored().company.name).toBe('Doce Encanto');
-
-    await user.click(screen.getByRole('button', { name: /Salvar e continuar/ }));
-    expect(await h1('Identidade da marca')).toBeInTheDocument();
-
-    await user.click(screen.getByRole('button', { name: /Voltar: Empresa/ }));
-    expect(await h1('Criação da empresa')).toBeInTheDocument();
-    expect(screen.getByRole('textbox', { name: /Nome da empresa/ })).toHaveValue('Doce Encanto');
-    expect(screen.getByRole('radio', { name: /Alimentação/ })).toBeChecked();
-  }, 20000);
-
-  it('permite pular etapas pelo menu lateral e mostra o progresso', async () => {
-    const user = userEvent.setup();
-    renderApp('/etapa/empresa');
-    const nav = screen.getByRole('navigation', { name: /Etapas da criação/ });
-    await user.click(within(nav).getByRole('link', { name: /Planejamento financeiro/ }));
-    expect(await h1('Planejamento financeiro')).toBeInTheDocument();
-    await user.click(within(nav).getByRole('link', { name: /Público-alvo/ }));
-    expect(await h1('Público-alvo')).toBeInTheDocument();
-    expect(within(nav).getByText('0%')).toBeInTheDocument();
-  });
-
-  it('percorre todas as etapas de um projeto completo até o painel', async () => {
-    const user = userEvent.setup();
-    seed(makeCompleteProject());
-    renderApp('/etapa/empresa');
-    const titles = ['Identidade da marca', 'Público-alvo', 'Produtos e serviços', 'Marketing digital', 'Criador de publicações', 'Planejamento financeiro'];
-    for (const title of titles) {
-      await user.click(screen.getByRole('button', { name: /Salvar e continuar/ }));
-      expect(await h1(title)).toBeInTheDocument();
-    }
-    await user.click(screen.getByRole('button', { name: /Salvar e ver o painel/ }));
-    expect(await h1('Painel da empresa')).toBeInTheDocument();
-    expect(screen.getByText(/7 de 7 etapas completas/, { selector: 'p' })).toBeInTheDocument();
-  });
-
-  it('redireciona etapas inexistentes para a etapa 1', async () => {
-    renderApp('/etapa/nao-existe');
-    expect(await h1('Criação da empresa')).toBeInTheDocument();
+    render(<App />);
+    expect(screen.getByRole('heading', { level: 1 })).toHaveTextContent('STARTUP TYCOON');
+    expect(screen.getByText(/Seu negócio\./)).toBeInTheDocument();
+    expect(screen.getByText(/Você tem uma ideia e uma oportunidade/)).toBeInTheDocument();
+    expect(screen.getByRole('button', { name: 'CONTINUAR' })).toBeDisabled();
+    await user.click(screen.getByRole('button', { name: 'COMO JOGAR' }));
+    expect(screen.getByRole('dialog', { name: 'Como jogar' })).toBeInTheDocument();
   });
 });
 
-describe('persistência', () => {
-  it('recupera o projeto salvo ao abrir de novo', async () => {
-    seed(makeCompleteProject());
-    renderApp('/');
-    expect(screen.getAllByText('Doce Encanto').length).toBeGreaterThan(0);
-    expect(screen.getByText('100% concluído')).toBeInTheDocument();
+describe('nova partida', () => {
+  it('cria a empresa passo a passo, com validação e capital em tempo real', async () => {
+    const user = userEvent.setup();
+    render(<App />);
+    await user.click(screen.getByRole('button', { name: 'NOVO JOGO' }));
+
+    await user.click(screen.getByRole('button', { name: /Continuar/ }));
+    expect(screen.getByText(/Digite seu nome/)).toBeInTheDocument();
+    await user.type(screen.getByRole('textbox', { name: /seu nome/ }), 'Ana');
+    await user.click(screen.getByRole('radio', { name: /Difícil/ }));
+    await user.click(screen.getByRole('button', { name: /Continuar/ }));
+
+    await user.click(screen.getByRole('button', { name: /Continuar/ }));
+    expect(screen.getByText(/Escolha o mercado/)).toBeInTheDocument();
+    await user.click(screen.getByRole('radio', { name: /Alimentação/ }));
+    await user.click(screen.getByRole('button', { name: /Continuar/ }));
+
+    await user.type(screen.getByRole('textbox', { name: /Nome da empresa/ }), 'Doce Encanto');
+    await user.type(screen.getByRole('textbox', { name: /Produto principal/ }), 'Brigadeiros');
+    await user.click(screen.getByRole('button', { name: /Gerar ideias de slogan/ }));
+    await user.type(screen.getByRole('textbox', { name: /Slogan/ }), 'Doçura em cada mordida');
+    await user.type(screen.getByRole('textbox', { name: /Descrição da empresa/ }), 'Doces artesanais por encomenda');
+    await user.type(screen.getByRole('textbox', { name: /Diferencial competitivo/ }), 'Receitas da família');
+    await user.click(screen.getByRole('button', { name: /Continuar/ }));
+
+    // Identidade visual: agência custa R$ 1.800.
+    await user.click(screen.getByRole('radio', { name: /Agência de branding/ }));
+    await user.click(screen.getByRole('button', { name: /Continuar/ }));
+    await user.click(screen.getByRole('radio', { name: /Premium/ }));
+    await user.click(screen.getByRole('button', { name: /Continuar/ }));
+
+    // 10.000 - 1.500 (abertura) - 1.800 (agência) - 3.000 (premium) - 0 (home office)
+    expect(screen.getByText('Caixa para começar a operar').closest('tr')).toHaveTextContent('R$ 3.700');
+    await user.click(screen.getByRole('button', { name: /Abrir minha empresa/ }));
+
+    expect(await screen.findByRole('dialog', { name: /Bem-vindo\(a\), Ana!/ })).toBeInTheDocument();
+    const s = saved();
+    expect(s.company.name).toBe('Doce Encanto');
+    expect(s.cash).toBe(3700);
+    expect(s.player.difficulty).toBe('dificil');
+    expect(s.quality).toBe(75);
   });
 
-  it('reinicia o projeto somente após confirmação', async () => {
+  it('o tutorial pode ser percorrido até o fim', async () => {
     const user = userEvent.setup();
-    seed(makeCompleteProject());
-    renderApp('/painel');
-    await user.click(screen.getByRole('button', { name: /Mais opções/ }));
-    await user.click(screen.getByRole('menuitem', { name: /Reiniciar projeto/ }));
-    const dialog = screen.getByRole('dialog', { name: /Reiniciar o projeto/ });
-    await user.click(within(dialog).getByRole('button', { name: 'Cancelar' }));
-    expect(stored().company.name).toBe('Doce Encanto');
-
-    await user.click(screen.getByRole('button', { name: /Mais opções/ }));
-    await user.click(screen.getByRole('menuitem', { name: /Reiniciar projeto/ }));
-    await user.click(within(screen.getByRole('dialog')).getByRole('button', { name: /Sim, apagar tudo/ }));
-    expect(window.localStorage.getItem(STORAGE_KEY)).toBeNull();
-    expect(await screen.findByRole('heading', { level: 1, name: /Sua ideia pode se tornar/ })).toBeInTheDocument();
-  });
-});
-
-describe('módulos', () => {
-  it('cadastra, edita e exclui produtos', async () => {
-    const user = userEvent.setup();
-    renderApp('/etapa/produtos');
-    expect(screen.getByText('Sua vitrine está vazia')).toBeInTheDocument();
-
-    await user.click(screen.getByRole('button', { name: /Cadastrar o primeiro item/ }));
-    let dialog = screen.getByRole('dialog');
-    await user.click(within(dialog).getByRole('button', { name: /Adicionar à vitrine/ }));
-    expect(within(dialog).getByText('Dê um nome ao produto ou serviço.')).toBeInTheDocument();
-
-    await user.type(within(dialog).getByRole('textbox', { name: /^Nome/ }), 'Bolo de pote');
-    await user.type(within(dialog).getByRole('textbox', { name: /Preço/ }), '12,50');
-    await user.type(within(dialog).getByRole('textbox', { name: /Descrição/ }), 'Bolo de pote de chocolate.');
-    await user.click(within(dialog).getByRole('button', { name: 'Produto' }));
-    await user.type(within(dialog).getByRole('textbox', { name: /Benefícios/ }), 'Prático');
-    await user.type(within(dialog).getByRole('textbox', { name: /Diferenciais/ }), 'Receita da avó');
-    await user.click(within(dialog).getByRole('button', { name: /Adicionar à vitrine/ }));
-
+    seed({ ...readyGame(), tutorialDone: false });
+    render(<App />);
+    await user.click(screen.getByRole('button', { name: 'CONTINUAR' }));
+    for (let i = 0; i < 6; i++) await user.click(await screen.findByRole('button', { name: 'Próximo' }));
+    await user.click(screen.getByRole('button', { name: /Começar a jogar/ }));
     expect(screen.queryByRole('dialog')).not.toBeInTheDocument();
-    expect(screen.getByRole('heading', { name: 'Bolo de pote' })).toBeInTheDocument();
-    expect(screen.getByText('R$ 12,50')).toBeInTheDocument();
-    expect(stored().products[0].price).toBe(12.5);
-
-    await user.click(screen.getByRole('button', { name: 'Editar Bolo de pote' }));
-    dialog = screen.getByRole('dialog');
-    const name = within(dialog).getByRole('textbox', { name: /^Nome/ });
-    await user.clear(name);
-    await user.type(name, 'Bolo de pote especial');
-    await user.click(within(dialog).getByRole('button', { name: /Salvar alterações/ }));
-    expect(screen.getByRole('heading', { name: 'Bolo de pote especial' })).toBeInTheDocument();
-
-    await user.click(screen.getByRole('button', { name: 'Excluir Bolo de pote especial' }));
-    await user.click(within(screen.getByRole('dialog')).getByRole('button', { name: 'Excluir' }));
-    expect(screen.getByText('Sua vitrine está vazia')).toBeInTheDocument();
-    expect(stored().products).toHaveLength(0);
+    expect(saved().tutorialDone).toBe(true);
   });
+});
 
-  it('gera slogans e usa uma sugestão', async () => {
+describe('rodadas', () => {
+  it('cria campanha, avança o mês e mostra o relatório educativo', async () => {
     const user = userEvent.setup();
-    seed(makeCompleteProject());
-    renderApp('/etapa/marca');
-    await user.click(screen.getByRole('button', { name: /Gerar sugestões/ }));
-    const first = screen.getAllByRole('button', { name: /Usar$/ })[0];
-    const text = first.querySelector('span')!.textContent!;
-    await user.click(first);
-    expect(screen.getByRole('textbox', { name: /Slogan da empresa/ })).toHaveValue(text);
+    seed(readyGame());
+    render(<App />);
+    await user.click(screen.getByRole('button', { name: 'CONTINUAR' }));
+    await user.click(screen.getAllByRole('button', { name: 'Marketing' })[0]);
+    await user.click(screen.getByRole('button', { name: 'Criar campanha' }));
+    expect(saved().campaigns).toHaveLength(1);
+
+    await user.click(screen.getByRole('button', { name: /Avançar para o mês 2/ }));
+    const report = await screen.findByRole('dialog', { name: 'Mês 1' }, { timeout: 4000 });
+    expect(within(report).getByText('O que você aprendeu este mês')).toBeInTheDocument();
+    expect(within(report).getByText('Resultado das campanhas')).toBeInTheDocument();
+    expect(within(report).getByText(/CAC|ROI/, { selector: 'span' })).toBeInTheDocument();
+    const s = saved();
+    expect(s.month).toBe(2);
+    expect(s.history).toHaveLength(1);
+    expect(s.cash).not.toBe(readyGame().cash);
+
+    await user.click(within(report).getByRole('button', { name: /Planejar o mês 2|há um evento/ }));
+    expect(screen.queryByRole('dialog', { name: 'Mês 1' })).not.toBeInTheDocument();
   });
 
-  it('salva uma campanha e mostra a prévia', async () => {
+  it('eventos exigem uma decisão e mostram a consequência', async () => {
     const user = userEvent.setup();
-    const project = makeCompleteProject();
-    project.campaigns = [];
-    seed(project);
-    renderApp('/etapa/publicacoes');
-    expect(screen.getByText('Nenhuma campanha salva ainda')).toBeInTheDocument();
-    await user.type(screen.getByRole('textbox', { name: /Nome da campanha/ }), 'Promo de Natal');
-    await user.click(screen.getByRole('button', { name: /Compre agora/ }));
-    await user.click(screen.getByRole('button', { name: /Montar texto com AIDA/ }));
-    expect((screen.getByRole('textbox', { name: /Texto da publicação/ }) as HTMLTextAreaElement).value).toContain('Doce Encanto');
-    await user.click(screen.getByRole('button', { name: /Salvar campanha/ }));
-    expect(stored().campaigns).toHaveLength(1);
-    expect(stored().campaigns[0].name).toBe('Promo de Natal');
-    expect(screen.getByText('Promo de Natal')).toBeInTheDocument();
+    seed(readyGame({ month: 4, cash: 8000, pendingEvent: { eventId: 'concorrente', month: 4 } }));
+    render(<App />);
+    await user.click(screen.getByRole('button', { name: 'CONTINUAR' }));
+    const dialog = await screen.findByRole('dialog', { name: 'Concorrente novo no mercado' });
+    expect(screen.getByRole('button', { name: /Avançar para o mês/ })).toBeDisabled();
+    await user.click(within(dialog).getByRole('button', { name: /Investir em diferenciação/ }));
+    expect(await screen.findByRole('dialog', { name: 'Concorrente novo no mercado' })).toHaveTextContent('Consequência');
+    expect(saved().cash).toBe(6500);
+    await user.click(screen.getByRole('button', { name: 'Continuar' }));
+    expect(screen.getByRole('button', { name: /Avançar para o mês 5/ })).toBeEnabled();
   });
 
-  it('calcula o financeiro automaticamente', async () => {
-    seed(makeCompleteProject());
-    renderApp('/etapa/financeiro');
-    expect(screen.getAllByText(/simulação educacional/i, { selector: 'strong' }).length).toBeGreaterThan(0);
-    expect(screen.getByText('R$ 3.000,00')).toBeInTheDocument();
-    expect(screen.getByText('R$ 1.600,00')).toBeInTheDocument();
-    expect(screen.getByText('R$ 1.400,00')).toBeInTheDocument();
-    expect(screen.getByText('46,7%')).toBeInTheDocument();
-  });
-
-  it('apresentação mostra as seções e imprime', async () => {
+  it('pausa e sai para o menu, mantendo o jogo salvo', async () => {
     const user = userEvent.setup();
-    const print = vi.spyOn(window, 'print').mockImplementation(() => undefined);
-    seed(makeCompleteProject());
-    renderApp('/apresentacao');
-    for (const label of ['Capa', 'Identidade visual', 'O negócio', 'Produtos e serviços', 'Público-alvo', 'Estratégia de marketing', 'Campanha de divulgação', 'Planejamento financeiro']) {
-      expect(screen.getByRole('region', { name: label })).toBeInTheDocument();
-    }
-    await user.click(screen.getByRole('button', { name: /Imprimir/ }));
-    expect(print).toHaveBeenCalled();
+    seed(readyGame());
+    render(<App />);
+    await user.click(screen.getByRole('button', { name: 'CONTINUAR' }));
+    await user.click(screen.getByRole('button', { name: 'Pausar' }));
+    expect(screen.getByRole('dialog', { name: 'Jogo pausado' })).toBeInTheDocument();
+    await user.click(screen.getByRole('button', { name: /Sair para o menu/ }));
+    expect(screen.getByRole('button', { name: 'CONTINUAR' })).toBeEnabled();
+    expect(screen.getByText('Vibe Store')).toBeInTheDocument();
+  });
 
-    await user.click(screen.getByRole('radio', { name: /Slides/ }));
-    expect(screen.getByText(/1\/9 · Capa/)).toBeInTheDocument();
-    await user.keyboard('{ArrowRight}');
-    expect(screen.getByText(/2\/9 · Identidade visual/)).toBeInTheDocument();
+  it('contratar e investir mudam o saldo na hora', async () => {
+    const user = userEvent.setup();
+    seed(readyGame());
+    render(<App />);
+    await user.click(screen.getByRole('button', { name: 'CONTINUAR' }));
+    await user.click(screen.getAllByRole('button', { name: 'Produto e preço' })[0]);
+    const before = saved().cash;
+    await user.click(screen.getByRole('button', { name: /Investir R\$\s1\.000 em melhorias/ }));
+    expect(saved().cash).toBe(before - 1000);
+    await user.click(screen.getAllByRole('button', { name: 'Equipe e expansão' })[0]);
+    await user.click(screen.getAllByRole('button', { name: 'Contratar' })[0]);
+    expect(saved().employees.atendente).toBe(1);
+  });
+});
+
+describe('fim de jogo', () => {
+  it('relatório final com pontuação e classificação', async () => {
+    const user = userEvent.setup();
+    const won = play('beleza', balanced).state;
+    seed({ ...won, unseenReport: false });
+    render(<App />);
+    await user.click(screen.getByRole('button', { name: 'CONTINUAR' }));
+    expect(await screen.findByText('Vitória!')).toBeInTheDocument();
+    expect(screen.getByText('Pontuação final')).toBeInTheDocument();
+    expect(screen.getByText('Estratégia de marketing')).toBeInTheDocument();
+    expect(screen.getByText('Principais decisões')).toBeInTheDocument();
+    await user.click(screen.getByRole('button', { name: 'Continuar jogando' }));
+    expect(saved().freePlay).toBe(true);
+    expect(saved().phase).toBe('playing');
+  });
+
+  it('novo jogo pede confirmação antes de apagar a partida', async () => {
+    const user = userEvent.setup();
+    seed(readyGame());
+    render(<App />);
+    await user.click(screen.getByRole('button', { name: 'NOVO JOGO' }));
+    const dialog = screen.getByRole('dialog', { name: 'Começar um novo jogo?' });
+    await user.click(within(dialog).getByRole('button', { name: 'Cancelar' }));
+    expect(saved()).not.toBeNull();
+    await user.click(screen.getByRole('button', { name: 'NOVO JOGO' }));
+    await user.click(screen.getByRole('button', { name: 'Apagar e começar' }));
+    expect(window.localStorage.getItem(SAVE_KEY)).toBeNull();
+    expect(screen.getByText('Quem é você?')).toBeInTheDocument();
   });
 });

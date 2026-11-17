@@ -2,20 +2,28 @@
 
 @theme {
   --font-sans: 'Plus Jakarta Sans Variable', ui-sans-serif, system-ui, -apple-system, 'Segoe UI', sans-serif;
-  --font-fun: 'Fredoka Variable', 'Plus Jakarta Sans Variable', ui-rounded, system-ui, sans-serif;
-  --font-serif-brand: 'Playfair Display Variable', Georgia, 'Times New Roman', serif;
-  --font-tech: 'Space Grotesk Variable', ui-sans-serif, system-ui, sans-serif;
+  --font-display: 'Space Grotesk Variable', 'Plus Jakarta Sans Variable', ui-sans-serif, system-ui, sans-serif;
+  --font-fun: 'Fredoka Variable', ui-rounded, system-ui, sans-serif;
+  --font-serif-brand: Georgia, 'Times New Roman', serif;
+
+  --color-ink-950: #05070f;
+  --color-ink-900: #0a0f1d;
+  --color-ink-850: #0f1524;
+  --color-ink-800: #151c2f;
+  --color-ink-700: #1f2840;
 
   --animate-fade-up: fade-up 0.45s cubic-bezier(0.2, 0.7, 0.2, 1) both;
   --animate-fade-in: fade-in 0.3s ease-out both;
-  --animate-scale-in: scale-in 0.22s cubic-bezier(0.2, 0.7, 0.2, 1) both;
-  --animate-toast-in: toast-in 0.3s cubic-bezier(0.2, 0.7, 0.2, 1) both;
+  --animate-scale-in: scale-in 0.25s cubic-bezier(0.2, 0.7, 0.2, 1) both;
+  --animate-pop: pop 0.5s cubic-bezier(0.2, 0.9, 0.3, 1.3) both;
   --animate-float: float 6s ease-in-out infinite;
+  --animate-glow: glow 3s ease-in-out infinite;
+  --animate-shimmer: shimmer 2.2s linear infinite;
 
   @keyframes fade-up {
     from {
       opacity: 0;
-      transform: translateY(10px);
+      transform: translateY(12px);
     }
     to {
       opacity: 1;
@@ -33,19 +41,19 @@
   @keyframes scale-in {
     from {
       opacity: 0;
-      transform: translateY(8px) scale(0.97);
+      transform: translateY(10px) scale(0.96);
     }
     to {
       opacity: 1;
       transform: none;
     }
   }
-  @keyframes toast-in {
-    from {
+  @keyframes pop {
+    0% {
       opacity: 0;
-      transform: translateY(12px) scale(0.98);
+      transform: scale(0.6);
     }
-    to {
+    100% {
       opacity: 1;
       transform: none;
     }
@@ -56,56 +64,95 @@
       transform: translateY(0);
     }
     50% {
-      transform: translateY(-8px);
+      transform: translateY(-10px);
+    }
+  }
+  @keyframes glow {
+    0%,
+    100% {
+      opacity: 0.55;
+    }
+    50% {
+      opacity: 1;
+    }
+  }
+  @keyframes shimmer {
+    from {
+      background-position: -200% 0;
+    }
+    to {
+      background-position: 200% 0;
     }
   }
 }
 
 @layer base {
   html {
+    color-scheme: dark;
     -webkit-tap-highlight-color: transparent;
-    scroll-behavior: smooth;
   }
   body {
-    @apply bg-slate-50 font-sans text-slate-800 antialiased;
+    @apply bg-ink-950 font-sans text-slate-200 antialiased;
   }
   ::selection {
-    background: rgb(124 58 237 / 0.18);
+    background: rgb(139 92 246 / 0.35);
   }
   button:not(:disabled),
   [role='button']:not(:disabled) {
     cursor: pointer;
   }
-  input[type='number']::-webkit-inner-spin-button,
-  input[type='number']::-webkit-outer-spin-button {
-    -webkit-appearance: none;
-    margin: 0;
-  }
-  input[type='number'] {
-    -moz-appearance: textfield;
+  input[type='range'] {
+    accent-color: #8b5cf6;
   }
 }
 
-/* Fundo com brilhos suaves em azul e roxo */
-.app-backdrop {
+/* Fundo do jogo: grade sutil e brilhos em azul, roxo e verde */
+.game-backdrop {
   background:
-    radial-gradient(60rem 30rem at 100% -10%, rgb(139 92 246 / 0.12), transparent 60%),
-    radial-gradient(50rem 28rem at -10% 0%, rgb(59 130 246 / 0.12), transparent 60%),
-    #f8fafc;
+    radial-gradient(50rem 30rem at 10% -10%, rgb(59 130 246 / 0.16), transparent 60%),
+    radial-gradient(45rem 28rem at 100% 0%, rgb(139 92 246 / 0.16), transparent 60%),
+    radial-gradient(40rem 30rem at 50% 120%, rgb(16 185 129 / 0.1), transparent 60%),
+    #05070f;
+}
+.game-grid {
+  background-image:
+    linear-gradient(rgb(148 163 184 / 0.05) 1px, transparent 1px),
+    linear-gradient(90deg, rgb(148 163 184 / 0.05) 1px, transparent 1px);
+  background-size: 44px 44px;
+  mask-image: radial-gradient(ellipse at center, black 30%, transparent 75%);
 }
 
 .text-gradient {
-  background-image: linear-gradient(100deg, #2563eb 0%, #7c3aed 60%, #a855f7 100%);
+  background-image: linear-gradient(100deg, #60a5fa 0%, #a78bfa 50%, #34d399 100%);
   -webkit-background-clip: text;
   background-clip: text;
   color: transparent;
 }
 
+.shimmer {
+  background-image: linear-gradient(90deg, transparent, rgb(255 255 255 / 0.12), transparent);
+  background-size: 200% 100%;
+}
+
+.scrollbar-thin {
+  scrollbar-width: thin;
+  scrollbar-color: rgb(148 163 184 / 0.25) transparent;
+}
 .scrollbar-none {
   scrollbar-width: none;
 }
 .scrollbar-none::-webkit-scrollbar {
   display: none;
+}
+
+/* Recharts: tooltip e eixos no tema escuro */
+.recharts-cartesian-axis-tick-value {
+  fill: #94a3b8;
+  font-size: 11px;
+}
+.recharts-legend-item-text {
+  color: #cbd5e1 !important;
+  font-size: 12px;
 }
 
 @media (prefers-reduced-motion: reduce) {
@@ -115,7 +162,6 @@
     animation-duration: 0.01ms !important;
     animation-iteration-count: 1 !important;
     transition-duration: 0.01ms !important;
-    scroll-behavior: auto !important;
   }
 }
 
@@ -128,6 +174,7 @@
   html,
   body {
     background: #fff !important;
+    color: #0f172a !important;
   }
   * {
     -webkit-print-color-adjust: exact !important;
@@ -135,8 +182,5 @@
   }
   .print-avoid-break {
     break-inside: avoid;
-  }
-  .print-page-break {
-    break-before: page;
   }
 }

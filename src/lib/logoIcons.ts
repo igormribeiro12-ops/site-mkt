@@ -1,12 +1,9 @@
 import type { LucideIcon } from 'lucide-react';
 import {
-  Apple,
   Atom,
   BookOpen,
-  Briefcase,
   Cake,
   Camera,
-  Car,
   Coffee,
   Cpu,
   Crown,
@@ -19,8 +16,6 @@ import {
   GraduationCap,
   Headphones,
   Heart,
-  HeartPulse,
-  House,
   Leaf,
   Lightbulb,
   Mountain,
@@ -37,62 +32,49 @@ import {
   Star,
   Sun,
   Truck,
-  UtensilsCrossed,
   Waves,
   Wrench,
   Zap,
 } from 'lucide-react';
 
-export interface LogoIconOption {
-  key: string;
-  label: string;
-  icon: LucideIcon;
-}
-
-export const LOGO_ICONS: LogoIconOption[] = [
+export const LOGO_ICONS: { key: string; label: string; icon: LucideIcon }[] = [
   { key: 'rocket', label: 'Foguete', icon: Rocket },
-  { key: 'lightbulb', label: 'Ideia', icon: Lightbulb },
+  { key: 'zap', label: 'Raio', icon: Zap },
   { key: 'star', label: 'Estrela', icon: Star },
   { key: 'sparkles', label: 'Brilho', icon: Sparkles },
-  { key: 'zap', label: 'Raio', icon: Zap },
-  { key: 'heart', label: 'Coração', icon: Heart },
-  { key: 'smile', label: 'Sorriso', icon: Smile },
   { key: 'crown', label: 'Coroa', icon: Crown },
   { key: 'gem', label: 'Joia', icon: Gem },
   { key: 'flame', label: 'Chama', icon: Flame },
-  { key: 'sun', label: 'Sol', icon: Sun },
-  { key: 'leaf', label: 'Folha', icon: Leaf },
-  { key: 'flower', label: 'Flor', icon: Flower2 },
-  { key: 'mountain', label: 'Montanha', icon: Mountain },
-  { key: 'waves', label: 'Ondas', icon: Waves },
+  { key: 'lightbulb', label: 'Ideia', icon: Lightbulb },
   { key: 'atom', label: 'Átomo', icon: Atom },
   { key: 'cpu', label: 'Chip', icon: Cpu },
   { key: 'gamepad', label: 'Controle', icon: Gamepad2 },
   { key: 'headphones', label: 'Fones', icon: Headphones },
   { key: 'music', label: 'Música', icon: Music },
   { key: 'camera', label: 'Câmera', icon: Camera },
-  { key: 'palette', label: 'Paleta', icon: Palette },
+  { key: 'palette', label: 'Arte', icon: Palette },
+  { key: 'heart', label: 'Coração', icon: Heart },
+  { key: 'smile', label: 'Sorriso', icon: Smile },
+  { key: 'leaf', label: 'Folha', icon: Leaf },
+  { key: 'flower', label: 'Flor', icon: Flower2 },
+  { key: 'sun', label: 'Sol', icon: Sun },
+  { key: 'mountain', label: 'Montanha', icon: Mountain },
+  { key: 'waves', label: 'Ondas', icon: Waves },
   { key: 'feather', label: 'Pena', icon: Feather },
   { key: 'book', label: 'Livro', icon: BookOpen },
   { key: 'graduation', label: 'Formatura', icon: GraduationCap },
-  { key: 'pulse', label: 'Saúde', icon: HeartPulse },
   { key: 'dumbbell', label: 'Academia', icon: Dumbbell },
-  { key: 'apple', label: 'Maçã', icon: Apple },
   { key: 'coffee', label: 'Café', icon: Coffee },
   { key: 'cake', label: 'Bolo', icon: Cake },
   { key: 'pizza', label: 'Pizza', icon: Pizza },
-  { key: 'utensils', label: 'Talheres', icon: UtensilsCrossed },
-  { key: 'shirt', label: 'Camiseta', icon: Shirt },
+  { key: 'shirt', label: 'Roupa', icon: Shirt },
   { key: 'scissors', label: 'Tesoura', icon: Scissors },
   { key: 'bag', label: 'Sacola', icon: ShoppingBag },
-  { key: 'house', label: 'Casa', icon: House },
-  { key: 'car', label: 'Carro', icon: Car },
   { key: 'truck', label: 'Entrega', icon: Truck },
   { key: 'wrench', label: 'Ferramenta', icon: Wrench },
-  { key: 'briefcase', label: 'Negócios', icon: Briefcase },
   { key: 'paw', label: 'Pet', icon: PawPrint },
 ];
 
-export function getLogoIcon(key: string): LucideIcon | null {
-  return LOGO_ICONS.find((i) => i.key === key)?.icon ?? null;
+export function getLogoIcon(key: string): LucideIcon {
+  return LOGO_ICONS.find((i) => i.key === key)?.icon ?? Rocket;
 }

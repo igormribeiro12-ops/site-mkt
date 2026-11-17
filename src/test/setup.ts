@@ -7,6 +7,12 @@ afterEach(() => {
   window.localStorage.clear();
 });
 
-// APIs de rolagem não existem no jsdom.
+// APIs que não existem no jsdom.
 window.scrollTo = vi.fn() as unknown as typeof window.scrollTo;
 Element.prototype.scrollIntoView = vi.fn();
+class ResizeObserverStub {
+  observe() {}
+  unobserve() {}
+  disconnect() {}
+}
+(globalThis as unknown as { ResizeObserver: typeof ResizeObserverStub }).ResizeObserver ??= ResizeObserverStub;
