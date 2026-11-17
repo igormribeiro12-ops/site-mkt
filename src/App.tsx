@@ -1,33 +1,43 @@
-import { Navigate, Route, Routes } from 'react-router-dom';
-import { AppShell } from './components/layout/AppShell';
-import { ProjectProvider } from './context/ProjectContext';
-import { ToastProvider } from './context/ToastContext';
-import { DashboardPage } from './pages/DashboardPage';
-import { HomePage } from './pages/HomePage';
-import { PresentationPage } from './pages/PresentationPage';
-import { StepPage } from './pages/StepPage';
+import { useState } from 'react';
+import { GameProvider, useGame } from './state/GameContext';
+import { ToastProvider } from './state/ToastContext';
+import { FinalReport } from './screens/FinalReport';
+import { GameScreen } from './screens/game/GameScreen';
+import { SetupWizard } from './screens/setup/SetupWizard';
+import { TitleScreen } from './screens/TitleScreen';
 
-/** Rotas da aplicação. O roteador (Hash ou Memory) é fornecido por quem renderiza. */
-export function AppRoutes() {
-  return (
-    <Routes>
-      <Route path="/" element={<HomePage />} />
-      <Route element={<AppShell />}>
-        <Route path="/etapa/:stepId" element={<StepPage />} />
-        <Route path="/painel" element={<DashboardPage />} />
-      </Route>
-      <Route path="/apresentacao" element={<PresentationPage />} />
-      <Route path="*" element={<Navigate to="/" replace />} />
-    </Routes>
-  );
+type Screen = 'title' | 'setup' | 'game' | 'final';
+
+function Screens() {
+  const { game } = useGame();
+  const [screen, setScreen] = useState<Screen>('title');
+
+  // Se a partida sumir (ex.: reiniciada), volta para o menu.
+  const current: Screen = (screen === 'game' || screen === 'final') && !game ? 'title' : screen;
+
+  switch (current) {
+    case 'setup':
+      return <SetupWizard onExit={() => setScreen('title')} onStart={() => setScreen('game')} />;
+    case 'game':
+      return <GameScreen onExit={() => setScreen('title')} onFinish={() => setScreen('final')} />;
+    case 'final':
+      return <FinalReport onMenu={() => setScreen('title')} onNewGame={() => setScreen('setup')} onContinue={() => setScreen('game')} />;
+    default:
+      return (
+        <TitleScreen
+          onNewGame={() => setScreen('setup')}
+          onContinue={() => setScreen(game && game.phase !== 'playing' && !game.unseenReport ? 'final' : 'game')}
+        />
+      );
+  }
 }
 
 export function App() {
   return (
     <ToastProvider>
-      <ProjectProvider>
-        <AppRoutes />
-      </ProjectProvider>
+      <GameProvider>
+        <Screens />
+      </GameProvider>
     </ToastProvider>
   );
 }
