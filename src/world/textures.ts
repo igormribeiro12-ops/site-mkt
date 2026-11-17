@@ -7,7 +7,7 @@ import * as env from './art/environmentArt';
 
 /** Chave estável para uma aparência (mesma aparência = mesma textura). */
 export function lookKey(look: Look): string {
-  return `char-${[look.skin, look.hairStyle, look.hairColor, look.shirt, look.pants, look.style, look.glasses ? 1 : 0, look.apron ?? '', look.accessory ?? ''].join('-')}`;
+  return `char-${[look.gender ?? 'masculino', look.beard ? 'b' : '', look.skirt ? 's' : '', look.skin, look.hairStyle, look.hairColor, look.shirt, look.pants, look.style, look.glasses ? 1 : 0, look.apron ?? '', look.accessory ?? ''].join('-')}`;
 }
 
 const ANIMS: { name: string; frames: string[]; rate: number; repeat: number }[] = [

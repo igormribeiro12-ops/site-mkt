@@ -96,6 +96,34 @@ describe('nova partida', () => {
     expect(await screen.findByText('Dona Rita', {}, { timeout: 3000 })).toBeInTheDocument();
   }, 20000);
 
+  it('personagem feminina, barbearia e assistente de ideias preenchendo a empresa', async () => {
+    const user = setup();
+    render(<App />);
+    await user.click(screen.getByRole('button', { name: 'NOVO JOGO' }));
+    await user.type(screen.getByRole('textbox', { name: /seu nome/ }), 'Bia');
+    await user.click(within(screen.getByRole('radiogroup', { name: 'Sexo' })).getByRole('radio', { name: 'Feminino' }));
+    await user.click(screen.getByRole('radio', { name: 'Saia' }));
+    await user.click(screen.getByRole('button', { name: /Continuar/ }));
+    await user.click(screen.getByRole('radio', { name: /Barbearia/ }));
+    await user.click(screen.getByRole('button', { name: /Continuar/ }));
+
+    await user.click(screen.getByRole('button', { name: 'Sugerir nomes' }));
+    expect(screen.getByRole('button', { name: 'Outras ideias' })).toBeInTheDocument();
+    await user.click(screen.getByRole('button', { name: 'Preencher campos vazios' }));
+    for (const label of [/Nome da empresa/, /Produto principal/, /Slogan/, /Descrição da empresa/, /Diferencial competitivo/])
+      expect((screen.getByRole('textbox', { name: label }) as HTMLInputElement).value.length).toBeGreaterThan(2);
+    await user.click(screen.getByRole('button', { name: /Continuar/ }));
+    expect(screen.queryByText(/Dê um nome para a empresa/)).not.toBeInTheDocument();
+    await user.click(screen.getByRole('button', { name: /Continuar/ }));
+    await user.click(screen.getByRole('button', { name: /Continuar/ }));
+    await user.click(screen.getByRole('button', { name: /Abrir minha empresa/ }));
+    await screen.findByTestId('game-canvas', {}, { timeout: 8000 });
+    expect(game().company.segment).toBe('barbearia');
+    expect(game().avatar.gender).toBe('feminino');
+    expect(game().avatar.skirt).toBe(true);
+    expect(game().world.furniture.some((f) => f.type === 'cadeira_barbeiro')).toBe(true);
+  }, 20000);
+
   it('as dicas de boas-vindas podem ser percorridas até o fim', async () => {
     const user = setup();
     seed({ ...readyGame(), tutorialDone: false });

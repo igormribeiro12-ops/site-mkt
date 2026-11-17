@@ -54,6 +54,7 @@ export class Actor {
   }
 
   setPosition(x: number, y: number) {
+    if (this.destroyed) return;
     this.sprite.setPosition(x, y);
     this.sprite.setDepth(y);
   }
@@ -107,6 +108,7 @@ export class Actor {
 
   /** Mostra um balão com texto acima da cabeça. */
   say(text: string, ms = 2600) {
+    if (this.destroyed) return;
     this.bubble?.destroy();
     const t = this.scene.add.text(0, 0, text, {
       fontFamily: '"Plus Jakarta Sans Variable", sans-serif',
@@ -134,6 +136,7 @@ export class Actor {
   }
 
   emote(icon: string, ms = 1800) {
+    if (this.destroyed) return;
     this.emoteSprite?.destroy();
     this.emoteSprite = this.scene.add.image(this.x, this.y - 66, `bubble-${icon}`).setDepth(19000);
     this.emoteSprite.setScale(0.2);
@@ -187,12 +190,16 @@ export class Actor {
     }
   }
 
-  /** Já foi removido do cenário. */
-  destroyed = false;
+  private removed = false;
+
+  /** Já foi removido do cenário (por nós ou porque a cena foi encerrada). */
+  get destroyed(): boolean {
+    return this.removed || !this.sprite.scene || !this.sprite.anims;
+  }
 
   destroy() {
-    if (this.destroyed) return;
-    this.destroyed = true;
+    if (this.removed) return;
+    this.removed = true;
     this.path = [];
     this.onArrive = null;
     this.bubble?.destroy();

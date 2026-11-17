@@ -2,7 +2,7 @@
 
 import type { SegmentId } from './types';
 
-interface Vocabulary {
+export interface Vocabulary {
   nouns: string[];
   benefits: string[];
   pains: string[];
@@ -28,7 +28,7 @@ const VOCAB: Record<SegmentId, Vocabulary> = {
     pains: ['pressa', 'fome', 'comida sem graça'],
     promises: ['abraça o seu dia', 'traz o gostinho de casa', 'deixa tudo mais gostoso', 'transforma qualquer momento em festa'],
     actions: ['Saboreie cada momento', 'Experimente o melhor sabor', 'Mate a fome com carinho', 'Prove e se apaixone'],
-    artOf: ['cozinhar com carinho', 'transformar ingredientes em momentos', 'servir bem'],
+    artOf: ['cozinhar com carinho', 'transformar ingredientes em bons momentos', 'servir bem'],
     moments: ['em cada mordida', 'a cada garfada', 'em cada receita'],
   },
   moda: {
@@ -85,6 +85,51 @@ const VOCAB: Record<SegmentId, Vocabulary> = {
     artOf: ['criar momentos inesquecíveis', 'divertir', 'emocionar'],
     moments: ['a cada momento', 'do início ao fim', 'em cada encontro'],
   },
+  barbearia: {
+    nouns: ['o corte', 'o estilo', 'a barba feita'],
+    benefits: ['estilo', 'precisão', 'atitude', 'cuidado', 'bom papo'],
+    pains: ['cabelo rebelde', 'barba malfeita', 'espera'],
+    promises: ['deixa você no estilo', 'cuida do seu visual', 'acerta no corte', 'renova o seu visual'],
+    actions: ['Renove seu estilo', 'Cuide do seu visual', 'Saia na régua', 'Agende seu corte'],
+    artOf: ['cortar com precisão', 'cuidar do seu estilo', 'deixar tudo na régua'],
+    moments: ['em cada corte', 'na navalha', 'toda semana'],
+  },
+  assistencia: {
+    nouns: ['o conserto', 'a solução', 'o reparo'],
+    benefits: ['agilidade', 'confiança', 'garantia', 'preço justo', 'transparência'],
+    pains: ['tela quebrada', 'aparelho parado', 'dor de cabeça'],
+    promises: ['devolve o seu aparelho novinho', 'resolve no mesmo dia', 'conserta com garantia', 'traz o seu celular de volta à vida'],
+    actions: ['Conserte sem complicação', 'Recupere seu aparelho', 'Deixe com quem entende', 'Volte a se conectar'],
+    artOf: ['consertar com cuidado', 'resolver rápido', 'dar vida nova aos aparelhos'],
+    moments: ['no mesmo dia', 'com garantia', 'sempre que precisar'],
+  },
+  petshop: {
+    nouns: ['o carinho', 'o cuidado pet', 'o banho caprichado'],
+    benefits: ['carinho', 'cuidado', 'cheirinho bom', 'saúde', 'alegria'],
+    pains: ['pelo embaraçado', 'pet estressado', 'preocupação'],
+    promises: ['cuida do seu melhor amigo', 'trata seu pet como família', 'deixa seu pet feliz', 'devolve seu pet cheiroso e feliz'],
+    actions: ['Mime seu pet', 'Cuide de quem te ama', 'Traga seu melhor amigo', 'Dê o melhor para o seu pet'],
+    artOf: ['cuidar de quem tem quatro patas', 'mimar os pets', 'fazer o rabinho abanar'],
+    moments: ['em cada banho', 'com muito carinho', 'em cada lambida'],
+  },
+  academia: {
+    nouns: ['o treino', 'a saúde', 'a energia'],
+    benefits: ['saúde', 'energia', 'disciplina', 'motivação', 'resultado'],
+    pains: ['sedentarismo', 'cansaço', 'desânimo'],
+    promises: ['tira você do sofá', 'transforma o seu corpo e a sua mente', 'faz você superar limites', 'mostra resultado de verdade'],
+    actions: ['Supere seus limites', 'Comece hoje', 'Treine com propósito', 'Sinta a diferença'],
+    artOf: ['treinar com prazer', 'superar limites', 'viver com saúde'],
+    moments: ['a cada treino', 'todos os dias', 'repetição por repetição'],
+  },
+  lanchonete: {
+    nouns: ['o lanche', 'o hambúrguer', 'o sabor'],
+    benefits: ['sabor', 'suculência', 'fome saciada', 'capricho', 'preço justo'],
+    pains: ['fome', 'lanche sem graça', 'demora'],
+    promises: ['mata a sua fome com sabor', 'é feito na hora', 'deixa saudade', 'junta a galera em volta da mesa'],
+    actions: ['Mate a fome com estilo', 'Peça o seu agora', 'Experimente o mais pedido', 'Morda sem moderação'],
+    artOf: ['fazer o lanche perfeito', 'caprichar no recheio', 'servir na hora'],
+    moments: ['em cada mordida', 'feito na hora', 'a qualquer hora'],
+  },
 };
 
 type Parts = { name: string; noun: string; b1: string; b2: string; b3: string; pain: string; promise: string; action: string; artOf: string; moment: string };
@@ -99,7 +144,7 @@ const TEMPLATES: Template[] = [
   (p) => (p.name ? `${p.name}. ${cap(p.b1)} ${p.moment}.` : null),
   (p) => (p.name ? `${cap(p.b1)}, ${p.b2} e ${p.b3}. Isso é ${p.name}.` : null),
   (p) => (p.name ? `Pensou em ${p.b1}, pensou ${p.name}.` : null),
-  (p) => (p.name ? `Com ${p.name}, ${p.artOf} ficou mais fácil.` : null),
+  (p) => (p.name ? `${p.name}: feito com ${p.b1} e ${p.b2}.` : null),
   (p) => `O novo jeito de ${p.artOf}.`,
   (p) => (p.name ? `${p.name}. A arte de ${p.artOf}.` : null),
   (p) => (p.name ? `Ninguém faz como ${p.name}.` : null),
@@ -117,6 +162,11 @@ function shuffle<T>(list: T[], rnd: () => number): T[] {
     [copy[i], copy[j]] = [copy[j], copy[i]];
   }
   return copy;
+}
+
+/** Vocabulário do segmento (usado também pelo assistente de ideias). */
+export function vocabFor(segment: SegmentId): Vocabulary {
+  return VOCAB[segment];
 }
 
 export function generateSlogans(name: string, segment: SegmentId | '', count = 4, rnd: () => number = Math.random): string[] {

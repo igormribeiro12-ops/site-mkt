@@ -63,6 +63,9 @@ export function setupCosts(d: SetupDraft) {
 }
 
 export const DEFAULT_AVATAR: SetupDraft['avatar'] = {
+  gender: 'masculino',
+  beard: false,
+  skirt: false,
   skin: '#eab995',
   hairStyle: 'curto',
   hairColor: '#3b2416',

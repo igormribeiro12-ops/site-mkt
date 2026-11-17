@@ -20,7 +20,7 @@ import { ShopPanel } from './panels/ShopPanel';
 import { characterThumb } from './thumbs';
 import { TOOLS, Toolbar } from './Toolbar';
 
-const MENTOR_LOOK = { ...randomLook(hashRandom('mentora')), hairStyle: 'coque' as const, hairColor: '#8e8e9a', shirt: '#0d9488', style: 'social' as const, glasses: true };
+const MENTOR_LOOK = { ...randomLook(hashRandom('mentora')), gender: 'feminino' as const, beard: false, hairStyle: 'coque' as const, hairColor: '#8e8e9a', shirt: '#0d9488', style: 'social' as const, glasses: true };
 
 function isTyping(target: EventTarget | null) {
   const el = target as HTMLElement | null;

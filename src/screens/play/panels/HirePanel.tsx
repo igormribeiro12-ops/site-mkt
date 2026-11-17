@@ -12,7 +12,7 @@ import { patchUi } from '../../../state/store';
 import { applyGameAction } from '../../../world/actions';
 import { randomLook } from '../../../world/art/characters';
 import { hashRandom } from '../../../world/art/draw';
-import { ROLE_LOOK } from '../../../world/roleLooks';
+import { ROLE_LOOK, roleTitle } from '../../../world/roleLooks';
 import { SidePanel } from '../SidePanel';
 import { characterThumb } from '../thumbs';
 
@@ -58,7 +58,7 @@ export function HirePanel() {
                 </div>
                 <div className="min-w-0 flex-1">
                   <p className="flex items-center gap-1.5 font-display font-bold text-white">
-                    <Icon className="size-4 text-sky-300" aria-hidden /> {r.label}
+                    <Icon className="size-4 text-sky-300" aria-hidden /> {roleTitle(r.id, look.gender)}
                   </p>
                   <p className="text-xs text-slate-400">{r.benefit}</p>
                   <p className="mt-1 text-xs">

@@ -3,7 +3,6 @@
 // de eventos, o relógio (dia e noite) e o modo de construção.
 
 import Phaser from 'phaser';
-import { getRole } from '../../game/data';
 import { addWork, buyFurniture, moveFurniture, sellFurniture } from '../../game/engine';
 import { getEvent } from '../../game/events';
 import { getFurniture, type FurnitureDef, type Spot } from '../../game/furniture';
@@ -13,13 +12,13 @@ import { gameStore, isTimeRunning, patchUi, uiStore } from '../../state/store';
 import { type Look, randomLook } from '../art/characters';
 import { hashRandom } from '../art/draw';
 import { T } from '../art/furnitureArt';
-import { applyGameAction, doQuickAction, openEventDialog } from '../actions';
+import { applyGameAction, doQuickAction, openEventDialog, speakerFor } from '../actions';
 import { EV, bus } from '../bus';
 import { CLOSE, isBusinessHours, lightingAt } from '../clock';
 import { planCustomers } from '../customerPlan';
 import { remainingDayFraction, tickClock } from '../dayCycle';
 import { Actor, type Dir, type Point } from '../entities/Actor';
-import { ROLE_LOOK } from '../roleLooks';
+import { ROLE_LOOK, roleTitle, withGender } from '../roleLooks';
 import { CONFETTI_COLORS, ensureEnvironment, ensureFurniture, ensureSign, ensureWall } from '../textures';
 
 const MARGIN = 4;
@@ -121,6 +120,8 @@ export class OfficeScene extends Phaser.Scene {
   private replanTimer: Phaser.Time.TimerEvent | null = null;
   private clickedObject = false;
   private leaving = false;
+  /** Figurantes (pedestres, influenciador) atualizados pela própria cena. */
+  private extras: Actor[] = [];
   private curiousTimer = 30;
   private ghostArea: Phaser.GameObjects.Graphics | null = null;
 
@@ -160,6 +161,8 @@ export class OfficeScene extends Phaser.Scene {
 
   create() {
     this.leaving = false;
+    this.extras = [];
+    this.player = undefined as unknown as Actor;
     this.ghostArea = null;
     this.roomObjects = [];
     this.furniture.clear();
@@ -238,6 +241,8 @@ export class OfficeScene extends Phaser.Scene {
     this.updateVisitor(dt, speed);
     this.updateWork(dt, speed);
     this.updateAmbient(dt, speed);
+    this.extras = this.extras.filter((a) => !a.destroyed);
+    for (const a of this.extras) a.update(dt, Math.max(1, speed));
     this.updateDoor();
     this.updateLighting();
     this.updateFocus();
@@ -921,7 +926,7 @@ export class OfficeScene extends Phaser.Scene {
                 duration: 250,
                 onComplete: () => {
                   c.actor.sprite.setDepth(c.actor.y + 30);
-                  c.actor.setPose(face === 'up' ? 'sit-up' : face === 'down' ? 'sitfront' : face === 'right' ? 'sitright' : 'sitleft', face);
+                  c.actor.setPose(choice.spot.pose ?? (face === 'up' ? 'sit-up' : face === 'down' ? 'sitfront' : face === 'right' ? 'sitright' : 'sitleft'), face);
                 },
               });
             } else c.actor.idle(face);
@@ -1090,14 +1095,15 @@ export class OfficeScene extends Phaser.Scene {
         const look: Look = { ...randomLook(rand), ...ROLE_LOOK[role] };
         const door = this.doorTile;
         const start = initial && open ? this.tileCenter(door.x, door.y - 1) : this.tileCenter(this.cols - 1, this.sidewalkRow);
-        const actor = new Actor(this, look, start.x, start.y, getRole(role).label);
+        const actor = new Actor(this, look, start.x, start.y, roleTitle(role, look.gender));
         actor.speed = 105;
         const e: Employee = { actor, role, index: i, stationId: null, state: open ? 'arriving' : 'away', nextMove: 0 };
         if (!open) actor.sprite.setVisible(false);
         this.employees.push(e);
         if (open) {
           if (!initial) {
-            actor.say(`Olá! Sou o novo ${getRole(role).label.toLowerCase()}.`, 2600);
+            const fem = look.gender === 'feminino';
+            actor.say(`Olá! Sou ${fem ? 'a nova' : 'o novo'} ${roleTitle(role, look.gender).toLowerCase()}.`, 2600);
             this.sparkle(actor.x, actor.y - 30);
           }
           this.sendEmployeeToStation(e);
@@ -1174,7 +1180,7 @@ export class OfficeScene extends Phaser.Scene {
       .filter((e) => e.state !== 'away')
       .map((e) => ({
         id: `npc:${e.role}:${e.index}`,
-        label: getRole(e.role).label,
+        label: roleTitle(e.role, e.actor.look.gender),
         stand: { x: e.actor.x, y: e.actor.y },
         face: 'down' as Dir,
         anchor: { x: e.actor.x, y: e.actor.y - 64 },
@@ -1194,7 +1200,7 @@ export class OfficeScene extends Phaser.Scene {
 
   private visitorLook(eventId: string): Look {
     const rand = hashRandom(eventId);
-    const base = randomLook(rand);
+    const base = withGender(randomLook(rand), speakerFor(eventId).gender);
     if (eventId === 'investidor') return { ...base, style: 'social', shirt: '#111827', pants: '#111827', accessory: 'briefcase' };
     if (eventId === 'influenciador' || eventId === 'viral') return { ...base, style: 'criativo', shirt: '#ec4899', accessory: 'camera' };
     if (eventId === 'fornecedor' || eventId === 'inflacao' || eventId === 'crise_custos') return { ...base, shirt: '#a16207', accessory: 'box' };
@@ -1281,14 +1287,13 @@ export class OfficeScene extends Phaser.Scene {
       this.player.emote('idea', 1500);
       this.time.delayedCall(1600, () => this.player.idle('down'));
     } else if (id === 'influencer') {
-      const look: Look = { ...randomLook(hashRandom('influencer')), style: 'criativo', shirt: '#ec4899', accessory: 'camera' };
+      const look: Look = { ...withGender(randomLook(hashRandom('influencer')), 'feminino'), style: 'criativo', shirt: '#ec4899', accessory: 'camera' };
       const start = this.tileCenter(this.cols - 1, this.sidewalkRow);
       const inf = new Actor(this, look, start.x, start.y);
       inf.speed = 140;
       const near = this.nearestFree(this.pxToTile(this.player.x + T, this.player.y)) ?? this.doorTile;
       const path = findPath(this.grid, this.pxToTile(start.x, start.y), near);
-      const tick = (_: number, d: number) => inf.update(d, 1);
-      this.events.on('update', tick);
+      this.extras.push(inf);
       inf.walk(path ? path.slice(1).map((t) => this.tileCenter(t.x, t.y)) : [], () => {
         inf.setPose('cheer', 'down');
         inf.say('Oi, gente! Olha que lugar incrível!', 2400);
@@ -1297,7 +1302,6 @@ export class OfficeScene extends Phaser.Scene {
           this.player.idle('down');
           const back = findPath(this.grid, this.pxToTile(inf.x, inf.y), { x: this.cols - 1, y: this.sidewalkRow });
           inf.walk(back ? back.slice(1).map((t) => this.tileCenter(t.x, t.y)) : [], () => {
-            this.events.off('update', tick);
             inf.destroy();
           });
         });
@@ -1514,12 +1518,8 @@ export class OfficeScene extends Phaser.Scene {
       const end = this.tileCenter(ltr ? this.cols - 1 : 0, row);
       const p = new Actor(this, randomLook(hashRandom(String(Math.random()))), start.x, start.y);
       p.speed = 70 + Math.random() * 30;
-      const tick = (_: number, d: number) => p.update(d, Math.max(1, uiStore.get().speed));
-      this.events.on('update', tick);
-      p.walk([end], () => {
-        this.events.off('update', tick);
-        p.destroy();
-      });
+      this.extras.push(p);
+      p.walk([end], () => p.destroy());
     }
   }
 
