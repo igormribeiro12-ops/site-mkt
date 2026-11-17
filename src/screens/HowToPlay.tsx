@@ -5,15 +5,18 @@ import {
   CalendarClock,
   Dices,
   Flag,
+  Gamepad2,
   Megaphone,
   ShoppingCart,
   Skull,
+  Store,
   Target,
   Trophy,
 } from 'lucide-react';
 import { Button } from '../components/ui/Button';
 import { Modal } from '../components/ui/Modal';
-import { CONCEPTS, LEVELS, MONTH_LIMIT, STARTING_CAPITAL, VICTORY_REVENUE } from '../game/data';
+import { CONCEPTS, LEVELS, MONTH_LIMIT, STARTING_CAPITAL, VICTORY_LEVEL, VICTORY_REVENUE } from '../game/data';
+import { DAYS_PER_MONTH } from '../game/simulation';
 import { money } from '../game/format';
 
 function Section({ icon: Icon, title, children }: { icon: LucideIcon; title: string; children: ReactNode }) {
@@ -48,21 +51,44 @@ export function HowToPlay({ open, onClose }: { open: boolean; onClose: () => voi
             conquiste clientes, invista em marketing e cresça até virar um império.
           </p>
         </Section>
-        <Section icon={CalendarClock} title="Rodadas: cada rodada é um mês">
-          <ol className="list-decimal space-y-1 pl-5">
-            <li>Veja as informações do mercado e as suas finanças.</li>
-            <li>Decida onde investir: campanhas, preço, produto, equipe e estrutura.</li>
+        <Section icon={Gamepad2} title="Controles">
+          <ul className="list-disc space-y-1 pl-5">
             <li>
-              Clique em <strong className="text-white">Avançar mês</strong>. O jogo calcula vendas, despesas, clientes e
-              reputação e mostra um relatório com o que você aprendeu.
+              Ande com as <strong className="text-white">setas</strong> ou <strong className="text-white">W A S D</strong> — ou clique/toque no chão.
             </li>
-          </ol>
-          <p>Você controla o ritmo: só avança quando quiser. O jogo salva sozinho a cada ação.</p>
+            <li>
+              Chegue perto de um objeto e aperte <strong className="text-white">E</strong> (ou Espaço), ou clique nele: computador, mesa, balcão, porta,
+              móveis, funcionários.
+            </li>
+            <li>
+              Atalhos: <strong className="text-white">1</strong> Construir · <strong className="text-white">2</strong> Contratar ·{' '}
+              <strong className="text-white">3</strong> Comprar · <strong className="text-white">4</strong> Marketing · <strong className="text-white">5</strong>{' '}
+              Empresa · <strong className="text-white">6</strong> Missões · <strong className="text-white">P</strong> pausa · <strong className="text-white">Esc</strong> menu.
+            </li>
+          </ul>
+        </Section>
+        <Section icon={CalendarClock} title="O tempo passa: dias e meses">
+          <p>
+            A loja abre às <strong className="text-white">8h</strong> e fecha às <strong className="text-white">18h</strong>. Durante o expediente, os
+            clientes entram, olham os produtos e pagam no balcão. À noite o tempo passa rápido.
+          </p>
+          <p>
+            Cada mês tem {DAYS_PER_MONTH} dias. No fim do mês você recebe um relatório com receita, despesas, lucro e o que aprendeu. Use pausa e
+            velocidade (1x, 2x, 4x) no topo da tela. Abrir qualquer janela pausa o jogo, e ele salva sozinho.
+          </p>
+        </Section>
+        <Section icon={Store} title="Seu escritório">
+          <p>
+            Compre móveis em <strong className="text-white">Construir</strong> e posicione no piso: cada item aumenta capacidade, satisfação ou
+            vendas. Trabalhe você mesmo na mesa (qualidade), no balcão (atendimento) ou na produção. Funcionários contratados aparecem e trabalham nos
+            postos livres. Amplie o espaço quando ficar cheio.
+          </p>
         </Section>
         <Section icon={Megaphone} title="Marketing">
           <p>
-            Crie campanhas em Instagram, TikTok, Google Ads, Facebook, WhatsApp, influenciadores e SEO. Cada canal tem custo,
-            alcance, público e conversão diferentes, e funciona melhor em alguns mercados.
+            No computador (ou em Marketing), crie campanhas em Instagram, TikTok, Google Ads, Facebook, WhatsApp, influenciadores e SEO. Cada
+            canal tem custo, alcance, público e conversão diferentes. Ações rápidas do dia (post, vídeo, panfletos, feira) acontecem no cenário.
+            Campanhas que dão certo trazem clientes que você vê entrando na loja.
           </p>
           <p>
             Escolha o objetivo: <strong className="text-white">reconhecimento</strong>, <strong className="text-white">seguidores</strong>,{' '}
@@ -77,18 +103,18 @@ export function HowToPlay({ open, onClose }: { open: boolean; onClose: () => voi
         </Section>
         <Section icon={Dices} title="Eventos">
           <p>
-            Concorrentes, posts virais, crises, investidores... A cada mês algo pode acontecer. Suas escolhas têm consequências, e o
-            jogo explica cada uma.
+            Concorrentes, posts virais, crises, investidores... Quando algo acontece, um personagem vem falar com você. Suas escolhas têm
+            consequências, e o jogo explica cada uma.
           </p>
         </Section>
         <Section icon={Trophy} title="Níveis e conquistas">
           <p>{LEVELS.map((l) => `${l.level}. ${l.title}`).join(' · ')}</p>
-          <p>Cada nível libera novos canais, cargos e expansões.</p>
+          <p>Cada fase libera novos canais, cargos, móveis e áreas da cidade. As missões guiam os primeiros passos e dão recompensas em dinheiro.</p>
         </Section>
         <Section icon={Flag} title="Como vencer">
           <p>
             Ao mesmo tempo: <strong className="text-white">{money(VICTORY_REVENUE)} de receita acumulada</strong>, nível{' '}
-            <strong className="text-white">Líder de mercado</strong> e <strong className="text-white">3 meses seguidos de lucro</strong>. Você
+            <strong className="text-white">{LEVELS[VICTORY_LEVEL - 1].title}</strong> e <strong className="text-white">3 meses seguidos de lucro</strong>. Você
             tem até {MONTH_LIMIT} meses.
           </p>
         </Section>

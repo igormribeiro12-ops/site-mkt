@@ -22,7 +22,7 @@ import { capacity, totalDebt, valuation } from '../../../game/simulation';
 import type { ModifierKind } from '../../../game/types';
 import { cn } from '../../../lib/cn';
 import { useActiveGame } from '../../../state/GameContext';
-import type { TabProps } from '../GameScreen';
+import type { TabProps } from '../apps';
 import { nextLevelRequirements } from '../levelProgress';
 
 const MOD_LABEL: Record<ModifierKind, string> = {
@@ -75,7 +75,7 @@ export function DashboardTab({ goTo }: TabProps) {
         <div className="grid gap-3 sm:grid-cols-3">
           {[
             { label: 'Receita acumulada', done: victory.revenue.done, value: `${moneyShort(victory.revenue.value)} de ${moneyShort(victory.revenue.target)}`, p: victory.revenue.value / victory.revenue.target },
-            { label: 'Nível Líder de mercado', done: victory.level.done, value: `Nível ${Math.min(victory.level.value, victory.level.target)} de ${victory.level.target}`, p: victory.level.value / victory.level.target },
+            { label: `Fase ${LEVELS[victory.level.target - 1]?.title ?? ''}`, done: victory.level.done, value: `Nível ${Math.min(victory.level.value, victory.level.target)} de ${victory.level.target}`, p: victory.level.value / victory.level.target },
             { label: 'Meses seguidos com lucro', done: victory.streak.done, value: `${Math.min(victory.streak.value, victory.streak.target)} de ${victory.streak.target}`, p: victory.streak.value / victory.streak.target },
           ].map((g) => (
             <div key={g.label} className={cn('rounded-xl p-3 ring-1', g.done ? 'bg-emerald-500/10 ring-emerald-400/30' : 'bg-white/[0.03] ring-white/10')}>

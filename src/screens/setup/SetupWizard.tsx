@@ -37,9 +37,10 @@ import type { DifficultyId, LogoDesign, SegmentId, SetupDraft } from '../../game
 import { cn } from '../../lib/cn';
 import { LOGO_ICONS } from '../../lib/logoIcons';
 import { useGame } from '../../state/GameContext';
+import { CharacterCreator } from './CharacterCreator';
 
 const STEPS = [
-  { title: 'Empreendedor', icon: User },
+  { title: 'Personagem', icon: User },
   { title: 'Mercado', icon: Store },
   { title: 'Empresa', icon: Building2 },
   { title: 'Identidade', icon: Palette },
@@ -134,6 +135,7 @@ export function SetupWizard({ onExit, onStart }: { onExit: () => void; onStart: 
           error={errors.playerName}
           onChange={(e) => set({ playerName: e.target.value })}
         />
+        <CharacterCreator avatar={draft.avatar} onChange={(avatar) => setDraft({ avatar })} />
         <fieldset>
           <legend className="mb-2 text-sm font-semibold text-slate-200">Nível de dificuldade</legend>
           <div className="grid gap-3 sm:grid-cols-3">

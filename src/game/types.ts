@@ -190,12 +190,86 @@ export interface EventOutcome {
 
 export type GamePhase = 'playing' | 'won' | 'lost' | 'ended';
 
+// --- Mundo 2D -----------------------------------------------------------------
+
+export type HairStyle = 'curto' | 'longo' | 'cacheado' | 'coque' | 'moicano' | 'careca';
+export type OutfitStyle = 'casual' | 'social' | 'criativo' | 'esportivo';
+export type PersonalityId = 'criativo' | 'negociador' | 'organizado' | 'visionario';
+
+export interface AvatarDesign {
+  skin: string;
+  hairStyle: HairStyle;
+  hairColor: string;
+  shirt: string;
+  pants: string;
+  style: OutfitStyle;
+  personality: PersonalityId;
+}
+
+/** Móvel posicionado no escritório (coordenadas em tiles do piso). */
+export interface PlacedItem {
+  id: string;
+  type: string;
+  x: number;
+  y: number;
+  starter?: boolean;
+}
+
+export interface WorkHours {
+  desk: number;
+  counter: number;
+  production: number;
+}
+
+/** Resultado de um dia de operação (somado para formar o relatório do mês). */
+export interface DayResult {
+  revenue: number;
+  unitsSold: number;
+  orders: number;
+  unmetOrders: number;
+  newCustomers: number;
+  newFromCampaigns: number;
+  newFromOrganic: number;
+  newFromLeads: number;
+  returningOrders: number;
+  reach: number;
+  followersGained: number;
+  capacity: number;
+  costs: CostBreakdown;
+  totalCosts: number;
+  profit: number;
+  serviceWeighted: number;
+  campaigns: CampaignResult[];
+}
+
+export interface WorldState {
+  furniture: PlacedItem[];
+  /** Dia útil dentro do mês (1 a DAYS_PER_MONTH). */
+  day: number;
+  /** Minuto do dia (0 a 1439). */
+  minute: number;
+  wallColor: string;
+  floorStyle: 'madeira' | 'piso' | 'concreto' | 'carpete';
+  missionsDone: string[];
+  workHours: WorkHours;
+  monthAcc: DayResult | null;
+  monthCashStart: number;
+  /** Dia em que o personagem do evento pendente chega à empresa. */
+  eventDay: number | null;
+  competitorOpen: boolean;
+  lastDay: { revenue: number; costs: number; customers: number } | null;
+  /** Ações rápidas de marketing: dia (mês*100+dia) em que foram usadas pela última vez. */
+  cooldowns: Record<string, number>;
+}
+
 export interface GameState {
   version: 1;
   seed: number;
   createdAt: string;
   updatedAt: string;
   player: { name: string; difficulty: DifficultyId };
+  avatar: AvatarDesign;
+  world: WorldState;
   company: CompanyProfile;
   phase: GamePhase;
   /** Depois de vencer, o jogador pode continuar no modo livre. */
@@ -243,6 +317,7 @@ export interface GameState {
 
 export interface SetupDraft {
   step: number;
+  avatar: AvatarDesign;
   playerName: string;
   difficulty: DifficultyId;
   segment: SegmentId | '';

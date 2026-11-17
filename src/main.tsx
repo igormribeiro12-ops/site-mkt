@@ -6,6 +6,8 @@ import '@fontsource-variable/fredoka';
 import './index.css';
 import { App } from './App';
 
+if (import.meta.env.DEV) void import('./dev/devtools');
+
 createRoot(document.getElementById('root')!).render(
   <StrictMode>
     <App />

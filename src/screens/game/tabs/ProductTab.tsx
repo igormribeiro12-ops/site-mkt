@@ -38,7 +38,7 @@ export function ProductTab() {
       </div>
 
       <Panel>
-        <PanelHeader icon={Tag} title="Preço e posicionamento" subtitle="A mudança vale para os próximos meses. Veja a projeção na barra inferior." />
+        <PanelHeader icon={Tag} title="Preço e posicionamento" subtitle="A mudança vale a partir de agora: os próximos clientes já pagam o novo preço." />
         <div className="flex flex-wrap items-center gap-4">
           <input
             type="range"

@@ -5,7 +5,7 @@ import { CHANNELS, SCOPES, getSegment, positioning, qualityExpectation } from '.
 import { money, num, pct } from '../../../game/format';
 import { competitionLevel, marketSize, offer } from '../../../game/simulation';
 import { useActiveGame } from '../../../state/GameContext';
-import type { TabProps } from '../GameScreen';
+import type { TabProps } from '../apps';
 
 export function MarketTab({ goTo }: TabProps) {
   const { game } = useActiveGame();

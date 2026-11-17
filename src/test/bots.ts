@@ -11,6 +11,7 @@ import {
   qualityExpectation,
 } from '../game/data';
 import {
+  DEFAULT_AVATAR,
   advanceMonth,
   createGame,
   expandScope,
@@ -39,6 +40,7 @@ function apply(s: GameState, r: ActionResult): GameState {
 export function draft(segment: SegmentId, difficulty: DifficultyId = 'normal', overrides: Partial<SetupDraft> = {}): SetupDraft {
   return {
     step: 6,
+    avatar: { ...DEFAULT_AVATAR },
     playerName: 'Bot',
     difficulty,
     segment,
