@@ -48,6 +48,7 @@ A pasta `dist/` é um site estático: pode ser publicada no GitHub Pages, Netlif
 - **Clientes** entram pela porta, olham os produtos, sentam, fazem fila no caixa, pagam (moedas e valor sobem na tela) e vão embora. Quando falta capacidade, alguns vão embora irritados. Curiosos do bairro também passam para dar uma olhada.
 - **Você trabalha:** no computador (melhora o produto), no balcão (melhora o atendimento) ou na produção.
 - **Computador da empresa:** o sistema de gestão com painel, mercado, campanhas, vendas, produto e preço, equipe, finanças e conquistas.
+- **Consultor da empresa:** no painel do computador, analisa os números e simula dezenas de decisões nos próximos 3 meses (campanhas em cada canal, contratações, preço, móveis, ampliação, pausar campanhas ruins, quitar dívidas). Mostra o que é urgente, as melhores oportunidades com o ganho estimado e dicas do dia, cada uma com um botão para agir. Tudo calculado no navegador, sem serviço externo.
 - **Fechamento:** no fim do dia o resultado aparece no cenário; a cada 10 dias o mês fecha com um **relatório educativo**.
 
 ### Crescer

@@ -1,11 +1,12 @@
 import type { LucideIcon } from 'lucide-react';
-import { Factory, Globe2, LayoutDashboard, Megaphone, ShoppingCart, Trophy, Users, Wallet } from 'lucide-react';
+import { BrainCircuit, Factory, Globe2, LayoutDashboard, Megaphone, ShoppingCart, Trophy, Users, Wallet } from 'lucide-react';
 
 /** Aplicativos do computador da empresa (sistema de gestão). */
-export type TabId = 'painel' | 'mercado' | 'marketing' | 'vendas' | 'produto' | 'equipe' | 'financas' | 'conquistas';
+export type TabId = 'painel' | 'consultor' | 'mercado' | 'marketing' | 'vendas' | 'produto' | 'equipe' | 'financas' | 'conquistas';
 
 export const TABS: { id: TabId; label: string; icon: LucideIcon }[] = [
   { id: 'painel', label: 'Painel', icon: LayoutDashboard },
+  { id: 'consultor', label: 'Consultor', icon: BrainCircuit },
   { id: 'mercado', label: 'Mercado', icon: Globe2 },
   { id: 'marketing', label: 'Campanhas', icon: Megaphone },
   { id: 'vendas', label: 'Vendas', icon: ShoppingCart },
