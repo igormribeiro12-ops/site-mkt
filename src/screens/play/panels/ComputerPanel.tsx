@@ -6,6 +6,7 @@ import { patchUi } from '../../../state/store';
 import { formatClock } from '../../../world/clock';
 import { TABS, type TabId } from '../../game/apps';
 import { AchievementsTab } from '../../game/tabs/AchievementsTab';
+import { AdvisorTab } from '../../game/tabs/AdvisorTab';
 import { DashboardTab } from '../../game/tabs/DashboardTab';
 import { FinanceTab } from '../../game/tabs/FinanceTab';
 import { MarketTab } from '../../game/tabs/MarketTab';
@@ -37,6 +38,7 @@ export function ComputerPanel() {
 
   const Content = {
     painel: DashboardTab,
+    consultor: AdvisorTab,
     mercado: MarketTab,
     marketing: MarketingTab,
     vendas: SalesTab,

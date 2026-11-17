@@ -2,6 +2,8 @@ import { describe, expect, it } from 'vitest';
 import { balanced, draft, passive, play, reckless } from '../test/bots';
 import { PAINTED_TYPES } from '../world/art/furnitureArt';
 import { ACHIEVEMENTS } from './achievements';
+import { analyze } from './advisor';
+import { getEvent } from './events';
 import { catalogFor } from './furniture';
 import { suggestAll, suggestDifferentials, suggestNames, suggestProducts } from './ideas';
 import { canPlace } from './layout';
@@ -248,5 +250,50 @@ describe('tipos de negócio, móveis e ideias', () => {
     const names = Array.from({ length: 30 }, (_, i) => suggestNames('lanchonete', 'Pedro', 'masculino', 6, rngFor(i, 1, 1))).flat();
     expect(names.some((n) => n.endsWith('do Pedro'))).toBe(true);
     expect(names.some((n) => n.endsWith('da Pedro'))).toBe(false);
+  });
+});
+
+describe('consultor da empresa', () => {
+  it('empresa nova: aponta a falta de divulgação primeiro e sugere uma campanha que dá lucro', () => {
+    const g = createGame(draft('lanchonete'), 5);
+    const a = analyze(g);
+    expect(a.recommendations[0].tone).toBe('urgente');
+    expect(a.recommendations.map((r) => r.id)).toContain('sem-divulgacao');
+    const camp = a.recommendations.find((r) => r.id.startsWith('camp-'));
+    expect(camp?.gain).toBeGreaterThan(0);
+    // aplicar a sugestão funciona de verdade
+    expect(camp?.action?.kind).toBe('apply');
+    if (camp?.action?.kind === 'apply') {
+      const r = camp.action.run(g);
+      expect(r.ok).toBe(true);
+      if (r.ok) expect(r.state.campaigns).toHaveLength(1);
+    }
+  });
+
+  it('caixa a caminho do vermelho vira alerta urgente', () => {
+    const g = createGame(draft('tecnologia'), 5);
+    const broke = { ...g, cash: 300, employees: { ...g.employees, atendente: 3 } };
+    const a = analyze(broke);
+    expect(a.health).toBe('critica');
+    expect(a.recommendations[0].id).toBe('risco-caixa');
+  });
+
+  it('as recomendações de oportunidade realmente melhoram o caixa projetado', () => {
+    let g = createGame(draft('moda'), 9);
+    for (let i = 0; i < 3; i++) {
+      g = advanceMonth(balanced(g)).state;
+      if (g.pendingEvent) {
+        const ev = getEvent(g.pendingEvent.eventId)!;
+        for (const c of ev.choices) {
+          const r = resolveEvent(g, c.id);
+          if (r.ok) {
+            g = r.state;
+            break;
+          }
+        }
+      }
+    }
+    const a = analyze(g);
+    for (const r of a.recommendations.filter((x) => x.tone === 'oportunidade')) expect(r.gain ?? 0).toBeGreaterThan(0);
   });
 });

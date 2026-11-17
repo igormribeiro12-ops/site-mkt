@@ -174,6 +174,22 @@ describe('jogo', () => {
     expect(uiStore.get().computerApp).toBe('financas');
   });
 
+  it('o consultor aparece no painel da empresa e aplica uma sugestão', async () => {
+    const user = setup();
+    seed(readyGame());
+    await continueGame(user);
+    await user.click(screen.getByRole('button', { name: 'Empresa', pressed: false }));
+    const summary = screen.getByTestId('advisor-summary');
+    expect(summary).toHaveTextContent('Consultor da empresa');
+    expect(within(summary).getByText('Ninguém está divulgando a sua empresa')).toBeInTheDocument();
+    await user.click(within(summary).getByRole('button', { name: /Ver todas as/ }));
+    expect(uiStore.get().computerApp).toBe('consultor');
+    expect(screen.getByRole('heading', { name: 'O que fazer agora' })).toBeInTheDocument();
+    const before = game().followers;
+    await user.click(within(screen.getByTestId('rec-post')).getByRole('button', { name: 'Publicar agora' }));
+    expect(game().followers).toBeGreaterThan(before);
+  });
+
   it('comprar um móvel entra no modo de posicionamento', async () => {
     const user = setup();
     seed(readyGame());

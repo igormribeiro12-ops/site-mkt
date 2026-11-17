@@ -1,7 +1,6 @@
 import {
   BadgeDollarSign,
   Building,
-  CircleAlert,
   Flag,
   Landmark,
   Receipt,
@@ -13,9 +12,8 @@ import {
   Zap,
 } from 'lucide-react';
 import { FinanceChart, MarketingChart } from '../../../components/charts/Charts';
-import { Button } from '../../../components/ui/Button';
 import { Badge, Meter, Panel, PanelHeader, Stat } from '../../../components/ui/Panel';
-import { LEVELS, MONTH_LIMIT, getDifficulty } from '../../../game/data';
+import { LEVELS, MONTH_LIMIT } from '../../../game/data';
 import { victoryProgress } from '../../../game/engine';
 import { money, moneyShort, num, numShort } from '../../../game/format';
 import { capacity, totalDebt, valuation } from '../../../game/simulation';
@@ -23,6 +21,7 @@ import type { ModifierKind } from '../../../game/types';
 import { cn } from '../../../lib/cn';
 import { useActiveGame } from '../../../state/GameContext';
 import type { TabProps } from '../apps';
+import { AdvisorSummary } from './AdvisorTab';
 import { nextLevelRequirements } from '../levelProgress';
 
 const MOD_LABEL: Record<ModifierKind, string> = {
@@ -41,18 +40,8 @@ export function DashboardTab({ goTo }: TabProps) {
   const last = game.history[game.history.length - 1];
   const victory = victoryProgress(game);
   const reqs = nextLevelRequirements(game);
-  const diff = getDifficulty(game.player.difficulty);
   const debt = totalDebt(game);
   const cap = capacity(game);
-
-  const alerts: { text: string; action?: () => void; actionLabel?: string; tone: 'bad' | 'warn' | 'info' }[] = [];
-  if (game.campaigns.filter((c) => c.active).length === 0)
-    alerts.push({ text: 'Nenhuma campanha ativa: sem divulgação, poucas pessoas conhecem a empresa.', action: () => goTo('marketing'), actionLabel: 'Criar campanha', tone: 'warn' });
-  if (last && last.unmetOrders >= 5)
-    alerts.push({ text: `Faltou capacidade: ${num(last.unmetOrders)} pedidos não atendidos no último mês.`, action: () => goTo('equipe'), actionLabel: 'Aumentar capacidade', tone: 'bad' });
-  if (game.cash < 0) alerts.push({ text: `Caixa negativo: você está pagando juros do cheque especial (limite ${money(-diff.overdraftLimit)}).`, action: () => goTo('financas'), actionLabel: 'Ver finanças', tone: 'bad' });
-  if (last && last.satisfaction < 55) alerts.push({ text: 'Clientes insatisfeitos: melhore qualidade, preço ou atendimento.', action: () => goTo('produto'), actionLabel: 'Ver produto', tone: 'warn' });
-  if (last && last.serviceRatio < 0.75) alerts.push({ text: 'O atendimento está sobrecarregado.', action: () => goTo('equipe'), actionLabel: 'Contratar', tone: 'warn' });
 
   return (
     <div className="space-y-5">
@@ -64,6 +53,8 @@ export function DashboardTab({ goTo }: TabProps) {
         </div>
         {game.freePlay && <Badge tone="good">Modo livre: você já venceu!</Badge>}
       </div>
+
+      <AdvisorSummary goTo={goTo} />
 
       <Panel data-tour="mission" className="bg-gradient-to-br from-violet-600/15 via-ink-850/80 to-emerald-600/10">
         <PanelHeader
@@ -89,28 +80,6 @@ export function DashboardTab({ goTo }: TabProps) {
           ))}
         </div>
       </Panel>
-
-      {alerts.length > 0 && (
-        <div className="space-y-2">
-          {alerts.map((a) => (
-            <div
-              key={a.text}
-              className={cn(
-                'flex flex-wrap items-center gap-3 rounded-xl px-4 py-3 text-sm ring-1',
-                a.tone === 'bad' ? 'bg-rose-500/10 text-rose-100 ring-rose-400/25' : a.tone === 'warn' ? 'bg-amber-500/10 text-amber-100 ring-amber-400/25' : 'bg-sky-500/10 text-sky-100 ring-sky-400/25',
-              )}
-            >
-              <CircleAlert className="size-4 shrink-0" aria-hidden />
-              <span className="flex-1">{a.text}</span>
-              {a.action && (
-                <Button size="sm" variant="secondary" onClick={a.action}>
-                  {a.actionLabel}
-                </Button>
-              )}
-            </div>
-          ))}
-        </div>
-      )}
 
       <div className="grid grid-cols-2 gap-3 md:grid-cols-4">
         <Stat icon={Wallet} label="Saldo disponível" value={money(game.cash)} tone={game.cash < 0 ? 'bad' : 'good'} hint={debt > 0 ? `Dívidas: ${money(debt)}` : 'Sem dívidas'} />
