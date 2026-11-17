@@ -1,12 +1,15 @@
 import { getSegment } from '../game/data';
+import { DEFAULT_AVATAR } from '../game/engine';
 import type { GameState, SetupDraft } from '../game/types';
 
-export const SAVE_KEY = 'startup-tycoon:save:v1';
-export const DRAFT_KEY = 'startup-tycoon:setup:v1';
+export const SAVE_KEY = 'startup-tycoon:save:v2';
+export const DRAFT_KEY = 'startup-tycoon:setup:v2';
+export const CLOCK_KEY = 'startup-tycoon:clock:v2';
 
 export function emptyDraft(): SetupDraft {
   return {
     step: 0,
+    avatar: { ...DEFAULT_AVATAR },
     playerName: '',
     difficulty: 'normal',
     segment: '',
@@ -44,7 +47,7 @@ function write(key: string, value: unknown): boolean {
 /** Carrega a partida salva, descartando dados corrompidos ou de outra versão. */
 export function loadGame(): GameState | null {
   const data = read<GameState>(SAVE_KEY);
-  if (!data || data.version !== 1 || !data.company || !data.player) return null;
+  if (!data || data.version !== 1 || !data.company || !data.player || !data.world || !data.avatar) return null;
   if (!getSegment(data.company.segment)) return null;
   return data;
 }
@@ -63,7 +66,7 @@ export function clearGame(): void {
 
 export function loadDraft(): SetupDraft {
   const data = read<SetupDraft>(DRAFT_KEY);
-  return data ? { ...emptyDraft(), ...data, logo: { ...emptyDraft().logo, ...data.logo } } : emptyDraft();
+  return data ? { ...emptyDraft(), ...data, avatar: { ...DEFAULT_AVATAR, ...data.avatar }, logo: { ...emptyDraft().logo, ...data.logo } } : emptyDraft();
 }
 
 export function saveDraft(draft: SetupDraft): void {
@@ -73,6 +76,29 @@ export function saveDraft(draft: SetupDraft): void {
 export function clearDraft(): void {
   try {
     window.localStorage.removeItem(DRAFT_KEY);
+  } catch {
+    // sem acesso ao armazenamento
+  }
+}
+
+export interface SavedClock {
+  minute: number;
+  day: number;
+  month: number;
+}
+
+export function loadClock(): SavedClock | null {
+  const c = read<SavedClock>(CLOCK_KEY);
+  return c && typeof c.minute === 'number' ? c : null;
+}
+
+export function saveClock(clock: SavedClock): void {
+  write(CLOCK_KEY, clock);
+}
+
+export function clearClock(): void {
+  try {
+    window.localStorage.removeItem(CLOCK_KEY);
   } catch {
     // sem acesso ao armazenamento
   }

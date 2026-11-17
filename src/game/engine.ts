@@ -32,8 +32,12 @@ import { clamp, money } from './format';
 import { createId } from './id';
 import { buildInsights } from './insights';
 import { newSeed } from './rng';
-import { employeeCount, simulateMonth, totalDebt } from './simulation';
-import type { Campaign, DecisionLog, GameState, Loan, MonthReport, RoleId, SetupDraft } from './types';
+import { getFurniture, ROOM_SIZES, starterLayout } from './furniture';
+import { canPlace } from './layout';
+import { completeMissions, isUnlocked, type MissionDef } from './missions';
+import { rngFor } from './rng';
+import { DAYS_PER_MONTH, addDay, closeMonth, employeeCount, simulateDay, simulateMonth, totalDebt, type BaseReport } from './simulation';
+import type { Campaign, DayResult, DecisionLog, GameState, Loan, MonthReport, PlacedItem, RoleId, SetupDraft, WorldState } from './types';
 
 export type ActionResult = { ok: true; state: GameState; message: string } | { ok: false; error: string };
 
@@ -58,6 +62,37 @@ export function setupCosts(d: SetupDraft) {
   return { opening, design, structure, product, total, remaining: STARTING_CAPITAL - total };
 }
 
+export const DEFAULT_AVATAR: SetupDraft['avatar'] = {
+  skin: '#eab995',
+  hairStyle: 'curto',
+  hairColor: '#3b2416',
+  shirt: '#6d5dfc',
+  pants: '#2f3a56',
+  style: 'casual',
+  personality: 'criativo',
+};
+
+export function initialWorld(segment: SetupDraft['segment'], cash: number): WorldState {
+  const furniture: PlacedItem[] = segment
+    ? starterLayout(segment).map((f, i) => ({ id: f.type === 'mesa_fundador' ? 'founder-desk' : `starter-${i}`, ...f, starter: true }))
+    : [];
+  return {
+    furniture,
+    day: 1,
+    minute: 8 * 60,
+    wallColor: '#e9e4f5',
+    floorStyle: 'madeira',
+    missionsDone: [],
+    workHours: { desk: 0, counter: 0, production: 0 },
+    monthAcc: null,
+    monthCashStart: cash,
+    eventDay: null,
+    competitorOpen: false,
+    lastDay: null,
+    cooldowns: {},
+  };
+}
+
 export function createGame(d: SetupDraft, seed = newSeed()): GameState {
   if (!d.segment) throw new Error('Escolha um segmento.');
   const seg = getSegment(d.segment);
@@ -72,6 +107,8 @@ export function createGame(d: SetupDraft, seed = newSeed()): GameState {
     createdAt: now,
     updatedAt: now,
     player: { name: d.playerName.trim(), difficulty: d.difficulty },
+    avatar: d.avatar ?? DEFAULT_AVATAR,
+    world: initialWorld(d.segment, costs.remaining),
     company: {
       name: d.name.trim(),
       slogan: d.slogan.trim(),
@@ -122,8 +159,10 @@ export function createGame(d: SetupDraft, seed = newSeed()): GameState {
     tutorialDone: false,
     unseenReport: false,
   };
+  // A primeira missão ("Crie sua primeira empresa") é cumprida ao abrir a empresa.
+  const opened = completeMissions(state).state;
   return log(
-    state,
+    opened,
     'setup',
     `Abriu a ${state.company.name} em ${seg.label} com ${money(costs.total)} de investimento inicial (identidade: ${design.label.toLowerCase()}, produto ${tier.label.toLowerCase()}, ${structure.label.toLowerCase()}).`,
   );
@@ -179,14 +218,12 @@ export function defeatReason(s: GameState): string | null {
 // Rodada (mês)
 // ---------------------------------------------------------------------------
 
-export function advanceMonth(state: GameState): { state: GameState; report: MonthReport } {
-  if (state.pendingEvent) throw new Error('Resolva o evento antes de avançar.');
-  const { state: simulated, report: base } = simulateMonth(state);
-  const { insights, concept } = buildInsights(state, base);
-
-  let s = simulated;
+/** Pós-processamento do fechamento do mês: aprendizados, níveis, conquistas, missões, fim de jogo e eventos. */
+function finalizeMonth(before: GameState, closed: GameState, base: BaseReport): { state: GameState; report: MonthReport; missions: MissionDef[]; achievements: string[] } {
+  const { insights, concept } = buildInsights(before, base);
+  let s = closed;
   const newLevel = computeLevel(s);
-  const levelUp = newLevel > s.level ? newLevel : null;
+  const levelUp = newLevel > before.level ? newLevel : null;
   s = { ...s, level: newLevel };
 
   const partial: MonthReport = { ...base, insights, concept, achievements: [], levelUp };
@@ -194,6 +231,8 @@ export function advanceMonth(state: GameState): { state: GameState; report: Mont
   s = ach.state;
   const report: MonthReport = { ...partial, achievements: ach.unlocked };
   s = { ...s, history: [...s.history, report], unseenReport: true, lastEventOutcome: null };
+  const ms = completeMissions(s);
+  s = ms.state;
 
   const lost = defeatReason(s);
   if (lost) {
@@ -202,7 +241,7 @@ export function advanceMonth(state: GameState): { state: GameState; report: Mont
     s = {
       ...s,
       phase: 'won',
-      endReason: `Vitória! A ${s.company.name} faturou ${money(s.totalRevenue)}, virou líder de mercado e lucrou ${s.profitStreak} meses seguidos.`,
+      endReason: `Vitória! A ${s.company.name} faturou ${money(s.totalRevenue)}, virou uma grande companhia e lucrou ${s.profitStreak} meses seguidos.`,
     };
   } else if (!s.freePlay && s.month > MONTH_LIMIT) {
     s = {
@@ -210,17 +249,77 @@ export function advanceMonth(state: GameState): { state: GameState; report: Mont
       phase: 'ended',
       endReason: `Fim do prazo: depois de ${MONTH_LIMIT} meses, a ${s.company.name} chegou ao nível ${s.level}.`,
     };
-  } else {
+  } else if (!s.pendingEvent) {
     const eventId = rollEvent(s);
     if (eventId) {
+      const eventDay = 1 + Math.floor(rngFor(s.seed, s.month, 3)() * 4);
       s = {
         ...s,
         pendingEvent: { eventId, month: s.month },
         recentEvents: [...s.recentEvents, { id: eventId, month: s.month }],
+        world: s.world ? { ...s.world, eventDay } : s.world,
       };
     }
   }
-  return { state: touch(s), report };
+  return { state: touch(s), report, missions: ms.completed, achievements: ach.unlocked };
+}
+
+/** Simula um mês inteiro de uma vez (usado nos testes de equilíbrio). */
+export function advanceMonth(state: GameState): { state: GameState; report: MonthReport } {
+  if (state.pendingEvent) throw new Error('Resolva o evento antes de avançar.');
+  const { state: closed, report: base } = simulateMonth(state);
+  const { state: s, report } = finalizeMonth(state, closed, base);
+  return { state: s, report };
+}
+
+export interface DayOutcome {
+  state: GameState;
+  day: DayResult;
+  /** Preenchido quando o dia fechou o mês. */
+  report: MonthReport | null;
+  levelUp: number | null;
+  missions: MissionDef[];
+  achievements: string[];
+}
+
+/** Simula um dia útil; no último dia do mês, fecha o mês. */
+export function advanceDay(state: GameState): DayOutcome {
+  const cashStart = state.world.monthAcc ? state.world.monthCashStart : state.cash;
+  const { state: simulated, day } = simulateDay(state);
+  const acc = addDay(state.world.monthAcc, day);
+  let s: GameState = {
+    ...simulated,
+    world: {
+      ...simulated.world,
+      monthAcc: acc,
+      monthCashStart: cashStart,
+      lastDay: { revenue: day.revenue, costs: day.totalCosts, customers: day.newCustomers },
+    },
+  };
+
+  const level = computeLevel(s);
+  const levelUp = level > s.level ? level : null;
+  s = { ...s, level };
+  const ach = unlockAchievements(s);
+  s = ach.state;
+  const ms = completeMissions(s);
+  s = ms.state;
+
+  const monthEnd = state.world.day >= DAYS_PER_MONTH || defeatReason(s) !== null;
+  if (monthEnd) {
+    const { state: closed, report: base } = closeMonth(s, acc, cashStart);
+    const fin = finalizeMonth(s, closed, base);
+    return {
+      state: fin.state,
+      day,
+      report: fin.report,
+      levelUp,
+      missions: [...ms.completed, ...fin.missions],
+      achievements: [...ach.unlocked, ...fin.achievements],
+    };
+  }
+  s = { ...s, world: { ...s.world, day: s.world.day + 1 } };
+  return { state: touch(s), day, report: null, levelUp, missions: ms.completed, achievements: ach.unlocked };
 }
 
 export function resolveEvent(state: GameState, choiceId: string): ActionResult {
@@ -234,6 +333,7 @@ export function resolveEvent(state: GameState, choiceId: string): ActionResult {
     ...applied,
     pendingEvent: null,
     lastEventOutcome: { eventId: event.id, title: event.title, choiceLabel: choice.label, text, month: state.month },
+    world: { ...applied.world, eventDay: null, competitorOpen: applied.world.competitorOpen || event.id === 'concorrente' },
   };
   s = log(s, 'event', `${event.title}: ${choice.label.toLowerCase()}.`);
   s = unlockAchievements(s).state;
@@ -255,7 +355,7 @@ function spend(state: GameState, cost: number): ActionResult | null {
 
 function finish(s: GameState, kind: DecisionLog['kind'], logText: string, message: string): ActionResult {
   const withLog = log(s, kind, logText);
-  return { ok: true, state: touch(unlockAchievements(withLog).state), message };
+  return { ok: true, state: touch(completeMissions(unlockAchievements(withLog).state).state), message };
 }
 
 export function setPrice(state: GameState, price: number): GameState {
@@ -444,4 +544,158 @@ export function markTutorialDone(state: GameState): GameState {
 
 export function markReportSeen(state: GameState): GameState {
   return { ...state, unseenReport: false };
+}
+
+// ---------------------------------------------------------------------------
+// Mundo 2D: móveis, decoração, trabalho do fundador e ações de marketing
+// ---------------------------------------------------------------------------
+
+export function buyFurniture(state: GameState, type: string, x: number, y: number): ActionResult {
+  const def = getFurniture(type);
+  if (!def || type === 'mesa_fundador') return { ok: false, error: 'Item indisponível.' };
+  if (def.segments !== 'all' && !def.segments.includes(state.company.segment)) return { ok: false, error: 'Esse item não combina com o seu negócio.' };
+  if (!isUnlocked(state, def.missionUnlock)) return { ok: false, error: 'Conclua mais missões para liberar este item.' };
+  const check = canPlace(state.world.furniture, state.infraLevel, type, x, y);
+  if (!check.ok) return { ok: false, error: check.reason ?? 'Não cabe aqui.' };
+  const err = spend(state, def.price);
+  if (err) return err;
+  const item: PlacedItem = { id: createId('mov'), type, x, y };
+  return finish(
+    { ...state, cash: state.cash - def.price, world: { ...state.world, furniture: [...state.world.furniture, item] } },
+    'expansion',
+    `Comprou ${def.name.toLowerCase()} (${money(def.price)}).`,
+    `${def.name} instalado!`,
+  );
+}
+
+export function moveFurniture(state: GameState, id: string, x: number, y: number): ActionResult {
+  const item = state.world.furniture.find((f) => f.id === id);
+  if (!item) return { ok: false, error: 'Móvel não encontrado.' };
+  const check = canPlace(state.world.furniture, state.infraLevel, item.type, x, y, id);
+  if (!check.ok) return { ok: false, error: check.reason ?? 'Não cabe aqui.' };
+  return {
+    ok: true,
+    state: touch({ ...state, world: { ...state.world, furniture: state.world.furniture.map((f) => (f.id === id ? { ...f, x, y } : f)) } }),
+    message: 'Móvel reposicionado.',
+  };
+}
+
+export function sellFurniture(state: GameState, id: string): ActionResult {
+  const item = state.world.furniture.find((f) => f.id === id);
+  const def = item && getFurniture(item.type);
+  if (!item || !def) return { ok: false, error: 'Móvel não encontrado.' };
+  if (item.type === 'mesa_fundador') return { ok: false, error: 'Sua mesa não pode ser vendida.' };
+  if (item.type === 'caixa' && state.world.furniture.filter((f) => f.type === 'caixa').length <= 1)
+    return { ok: false, error: 'Você precisa de pelo menos um balcão para atender os clientes.' };
+  const refund = Math.round(def.price * 0.5);
+  return finish(
+    { ...state, cash: state.cash + refund, world: { ...state.world, furniture: state.world.furniture.filter((f) => f.id !== id) } },
+    'expansion',
+    `Vendeu ${def.name.toLowerCase()} (+${money(refund)}).`,
+    `${def.name} vendido por ${money(refund)} (metade do preço).`,
+  );
+}
+
+export const DECOR_COST = 150;
+
+export function setDecor(state: GameState, patch: Partial<Pick<WorldState, 'wallColor' | 'floorStyle'>>): ActionResult {
+  const err = spend(state, DECOR_COST);
+  if (err) return err;
+  return {
+    ok: true,
+    state: touch({ ...state, cash: state.cash - DECOR_COST, world: { ...state.world, ...patch } }),
+    message: `Decoração atualizada (${money(DECOR_COST)}).`,
+  };
+}
+
+/** Horas trabalhadas pelo fundador no dia (mesa, balcão ou produção). */
+export function addWork(state: GameState, kind: keyof WorldState['workHours'], hours: number): GameState {
+  const work = { ...state.world.workHours, [kind]: Math.min(10, state.world.workHours[kind] + hours) };
+  return { ...state, world: { ...state.world, workHours: work } };
+}
+
+export interface QuickAction {
+  id: string;
+  label: string;
+  description: string;
+  cost: number;
+  unlockLevel: number;
+  /** Onde a animação acontece. */
+  scene: 'office' | 'city';
+}
+
+export const QUICK_ACTIONS: QuickAction[] = [
+  { id: 'post', label: 'Publicar conteúdo', description: 'Um post nas redes da empresa. Gratuito, uma vez por dia.', cost: 0, unlockLevel: 1, scene: 'office' },
+  { id: 'video', label: 'Gravar vídeo', description: 'Vídeo curto para as redes. Rende mais com o kit de gravação.', cost: 200, unlockLevel: 1, scene: 'office' },
+  { id: 'panfletos', label: 'Distribuir panfletos', description: 'Divulgação na rua do bairro: gera contatos interessados.', cost: 300, unlockLevel: 1, scene: 'city' },
+  { id: 'influencer', label: 'Post com influenciador', description: 'Um criador de conteúdo fala da sua marca.', cost: 1200, unlockLevel: 2, scene: 'office' },
+  { id: 'feira', label: 'Feira de negócios', description: 'Estande em um evento comercial: muitos contatos e reputação.', cost: 1500, unlockLevel: 2, scene: 'city' },
+];
+
+function dayStamp(s: GameState): number {
+  return s.month * 100 + s.world.day;
+}
+
+export function quickActionReady(state: GameState, id: string): boolean {
+  return state.world.cooldowns[id] !== dayStamp(state);
+}
+
+export function runQuickAction(state: GameState, id: string): ActionResult {
+  const action = QUICK_ACTIONS.find((a) => a.id === id);
+  if (!action) return { ok: false, error: 'Ação desconhecida.' };
+  if (state.level < action.unlockLevel) return { ok: false, error: `Libera no nível ${action.unlockLevel}.` };
+  if (!quickActionReady(state, id)) return { ok: false, error: 'Você já fez isso hoje. Tente amanhã!' };
+  const err = spend(state, action.cost);
+  if (err) return err;
+  const seg = getSegment(state.company.segment);
+  const social = (seg.affinity.instagram + seg.affinity.tiktok) / 2;
+  const hasCamera = state.world.furniture.some((f) => f.type === 'camera');
+  const marketer = 1 + 0.3 * state.employees.marketing;
+  let followers = 0;
+  let leads = 0;
+  let awareness = 0;
+  let reputation = 0;
+  if (id === 'post') {
+    followers = Math.round((25 + state.followers * 0.01) * social * marketer);
+    awareness = 0.5;
+  } else if (id === 'video') {
+    followers = Math.round((120 + state.followers * 0.04) * social * marketer * (hasCamera ? 2 : 1));
+    awareness = hasCamera ? 3 : 1.5;
+  } else if (id === 'panfletos') {
+    leads = Math.round(25 + marketSizeLocal(state) * 0.02);
+    awareness = 2;
+  } else if (id === 'influencer') {
+    followers = Math.round(900 * seg.affinity.influencer);
+    awareness = 6;
+    leads = 30;
+  } else if (id === 'feira') {
+    leads = Math.round(90 + marketSizeLocal(state) * 0.04);
+    awareness = 4;
+    reputation = 2;
+  }
+  const next: GameState = {
+    ...state,
+    cash: state.cash - action.cost,
+    followers: state.followers + followers,
+    leads: state.leads + leads,
+    awareness: clamp(state.awareness + awareness, 0, 100),
+    reputation: clamp(state.reputation + reputation, 0, 100),
+    world: { ...state.world, cooldowns: { ...state.world.cooldowns, [id]: dayStamp(state) } },
+  };
+  const parts = [followers ? `+${followers} seguidores` : '', leads ? `+${leads} contatos interessados` : '', awareness ? `+${awareness} de reconhecimento` : '']
+    .filter(Boolean)
+    .join(' · ');
+  return finish(next, 'marketing', `${action.label}${action.cost ? ` (${money(action.cost)})` : ''}.`, `${action.label}: ${parts}`);
+}
+
+function marketSizeLocal(state: GameState): number {
+  return getSegment(state.company.segment).baseDemand;
+}
+
+/** Ampliar o escritório: infraestrutura sobe de nível e o piso cresce. */
+export function expandOffice(state: GameState): ActionResult {
+  const result = upgradeInfra(state);
+  if (!result.ok) return result;
+  const size = ROOM_SIZES[Math.min(result.state.infraLevel, ROOM_SIZES.length - 1)];
+  return { ...result, message: `Escritório ampliado para ${size.w}×${size.h}! ${result.message}` };
 }

@@ -589,19 +589,19 @@ export interface LevelDef {
 export const LEVELS: LevelDef[] = [
   {
     level: 1,
-    title: 'Empreendedor iniciante',
+    title: 'Pequeno empreendedor',
     requirements: { revenue: 0, customers: 0 },
     unlocks: ['Instagram, Facebook e WhatsApp Business', 'Contratar atendente e vendedor', 'Investir em qualidade (P&D)'],
   },
   {
     level: 2,
-    title: 'Pequeno empresário',
+    title: 'Pequena empresa',
     requirements: { revenue: 5000, customers: 50 },
     unlocks: ['TikTok e Google Ads', 'Profissional de marketing', 'Lançar novos produtos', 'Empréstimos maiores'],
   },
   {
     level: 3,
-    title: 'Startup em crescimento',
+    title: 'Empresa em crescimento',
     requirements: { revenue: 20000, customers: 200, reputation: 40 },
     unlocks: ['Marketing de influência e SEO', 'Desenvolvedor de produto', 'Expandir para a cidade'],
   },
@@ -613,13 +613,13 @@ export const LEVELS: LevelDef[] = [
   },
   {
     level: 5,
-    title: 'Líder de mercado',
+    title: 'Grande companhia',
     requirements: { revenue: 80000, customers: 1000, reputation: 60, satisfaction: 65 },
     unlocks: ['Expandir para todo o Brasil'],
   },
   {
     level: 6,
-    title: 'Magnata dos negócios',
+    title: 'Império empresarial',
     requirements: { revenue: 200000, customers: 3000, expansions: 2 },
     unlocks: ['Status máximo: seu império está construído!'],
   },

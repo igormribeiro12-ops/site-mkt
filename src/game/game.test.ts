@@ -30,7 +30,10 @@ describe('criação da partida', () => {
     const costs = setupCosts(d);
     expect(costs.total).toBe(1500 + 600 + 0 + 1500);
     const s = createGame(d, 1);
-    expect(s.cash).toBe(STARTING_CAPITAL - costs.total);
+    // + R$ 500 da missão "Crie sua primeira empresa"
+    expect(s.cash).toBe(STARTING_CAPITAL - costs.total + 500);
+    expect(s.world.missionsDone).toEqual(['empresa']);
+    expect(s.world.furniture.some((f) => f.type === 'mesa_fundador')).toBe(true);
     expect(s.month).toBe(1);
     expect(s.level).toBe(1);
     expect(s.phase).toBe('playing');

@@ -1,8 +1,9 @@
-import { createContext, useCallback, useContext, useMemo, useRef, useState } from 'react';
+import { createContext, useCallback, useContext, useEffect, useMemo, useRef, useState } from 'react';
 import type { ReactNode } from 'react';
-import { CircleCheck, Info, Trophy, TriangleAlert, X } from 'lucide-react';
+import { CircleCheck, Coins, Info, Trophy, TriangleAlert, X } from 'lucide-react';
+import { EV, bus, type ToastPayload } from '../world/bus';
 
-type ToastKind = 'success' | 'error' | 'info' | 'achievement';
+type ToastKind = 'success' | 'error' | 'info' | 'achievement' | 'money';
 
 interface Toast {
   id: number;
@@ -24,6 +25,7 @@ const STYLES: Record<ToastKind, { icon: typeof Info; className: string; box: str
   error: { icon: TriangleAlert, className: 'text-rose-400', box: 'border-rose-400/30' },
   info: { icon: Info, className: 'text-sky-400', box: 'border-sky-400/20' },
   achievement: { icon: Trophy, className: 'text-amber-300', box: 'border-amber-300/40 shadow-amber-500/10' },
+  money: { icon: Coins, className: 'text-yellow-300', box: 'border-yellow-300/30' },
 };
 
 export function ToastProvider({ children }: { children: ReactNode }) {
@@ -51,12 +53,18 @@ export function ToastProvider({ children }: { children: ReactNode }) {
     [push],
   );
 
+  // Avisos vindos da cena 2D e das ações do jogo.
+  useEffect(() => bus.on(EV.toast, (p) => {
+    const t = p as ToastPayload;
+    push(t.kind, t.message);
+  }), [push]);
+
   return (
     <ToastContext.Provider value={api}>
       {children}
       <div
         aria-live="polite"
-        className="pointer-events-none fixed inset-x-0 top-3 z-[80] flex flex-col items-center gap-2 px-3 print:hidden"
+        className="pointer-events-none fixed inset-x-0 top-16 z-[80] flex flex-col items-center gap-2 px-3 print:hidden"
       >
         {toasts.map((toast) => {
           const { icon: Icon, className, box } = STYLES[toast.kind];

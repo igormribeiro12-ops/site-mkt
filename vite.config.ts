@@ -8,7 +8,8 @@ export default defineConfig({
   base: './',
   plugins: [react(), tailwindcss()],
   build: {
-    // App de página única (~150 kB gzip): o aviso padrão de 500 kB não se aplica aqui.
-    chunkSizeWarningLimit: 700,
+    // O motor 2D (Phaser, ~1,2 MB) fica em um pedaço separado, carregado só
+    // quando a partida começa; o menu inicial carrega bem menos.
+    chunkSizeWarningLimit: 1500,
   },
 });
