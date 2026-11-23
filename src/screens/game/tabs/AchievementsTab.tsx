@@ -1,6 +1,6 @@
 import { Award, Check, History, Lock, Medal, Star } from 'lucide-react';
 import { Badge, Meter, Panel, PanelHeader } from '../../../components/ui/Panel';
-import { ACHIEVEMENTS } from '../../../game/achievements';
+import { ACHIEVEMENTS, ACHIEVEMENT_CATEGORIES } from '../../../game/achievements';
 import { LEVELS } from '../../../game/data';
 import { moneyShort, num } from '../../../game/format';
 import { computeScore } from '../../../game/scoring';
@@ -41,7 +41,8 @@ export function AchievementsTab() {
                     {r.reputation !== undefined && ` · reputação ${r.reputation}`}
                     {r.satisfaction !== undefined && ` · satisfação ${r.satisfaction}%`}
                     {r.employees !== undefined && ` · ${r.employees} funcionários`}
-                    {r.expansions !== undefined && ` · ${r.expansions} expansões`}
+                    {r.cities !== undefined && ` · ${r.cities} cidades`}
+                    {r.states !== undefined && ` · ${r.states} estados`}
                   </p>
                 )}
                 <ul className="mt-2 space-y-0.5 text-xs text-slate-300">
@@ -57,24 +58,40 @@ export function AchievementsTab() {
 
       <Panel>
         <PanelHeader icon={Award} title={`Conquistas (${unlocked}/${ACHIEVEMENTS.length})`} accent="amber" />
-        <ul className="grid gap-2.5 sm:grid-cols-2 xl:grid-cols-4">
-          {ACHIEVEMENTS.map((a) => {
-            const month = game.achievements[a.id];
-            const done = month !== undefined;
-            const Icon = done ? a.icon : Lock;
+        <div className="space-y-5">
+          {ACHIEVEMENT_CATEGORIES.map((cat) => {
+            const list = ACHIEVEMENTS.filter((a) => a.category === cat.id);
+            const got = list.filter((a) => a.id in game.achievements).length;
             return (
-              <li key={a.id} className={cn('flex items-center gap-3 rounded-2xl border p-3', done ? 'border-amber-300/30 bg-amber-500/[0.07]' : 'border-white/[0.06] bg-white/[0.02]')}>
-                <span className={cn('flex size-10 shrink-0 items-center justify-center rounded-xl', done ? 'bg-amber-400/20 text-amber-300' : 'bg-white/[0.05] text-slate-600')}>
-                  <Icon className="size-5" aria-hidden />
-                </span>
-                <div className="min-w-0">
-                  <p className={cn('text-sm font-semibold', done ? 'text-white' : 'text-slate-400')}>{a.title}</p>
-                  <p className="text-xs text-slate-500">{done ? `Mês ${month}` : a.description}</p>
-                </div>
-              </li>
+              <section key={cat.id} aria-label={cat.label}>
+                <h3 className="mb-2 flex items-center justify-between text-xs font-semibold uppercase tracking-wider text-slate-400">
+                  {cat.label}
+                  <span className="tabular-nums text-slate-500">
+                    {got}/{list.length}
+                  </span>
+                </h3>
+                <ul className="grid gap-2.5 sm:grid-cols-2 xl:grid-cols-4">
+                  {list.map((a) => {
+                    const month = game.achievements[a.id];
+                    const done = month !== undefined;
+                    const Icon = done ? a.icon : Lock;
+                    return (
+                      <li key={a.id} className={cn('flex items-center gap-3 rounded-2xl border p-3', done ? 'border-amber-300/30 bg-amber-500/[0.07]' : 'border-white/[0.06] bg-white/[0.02]')}>
+                        <span className={cn('flex size-10 shrink-0 items-center justify-center rounded-xl', done ? 'bg-amber-400/20 text-amber-300' : 'bg-white/[0.05] text-slate-600')}>
+                          <Icon className="size-5" aria-hidden />
+                        </span>
+                        <div className="min-w-0">
+                          <p className={cn('text-sm font-semibold', done ? 'text-white' : 'text-slate-400')}>{a.title}</p>
+                          <p className="text-xs text-slate-500">{done ? `Mês ${month}` : a.description}</p>
+                        </div>
+                      </li>
+                    );
+                  })}
+                </ul>
+              </section>
             );
           })}
-        </ul>
+        </div>
       </Panel>
 
       <div className="grid gap-5 lg:grid-cols-2">

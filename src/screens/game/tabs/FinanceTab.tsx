@@ -1,11 +1,11 @@
-import { HandCoins, Landmark, ScrollText, Wallet } from 'lucide-react';
+import { Flame, Landmark, PiggyBank, ScrollText, Umbrella, Wallet } from 'lucide-react';
 import { FinanceChart } from '../../../components/charts/Charts';
 import { Button } from '../../../components/ui/Button';
 import { Meter, Panel, PanelHeader, Stat, TipCard } from '../../../components/ui/Panel';
-import { getDifficulty } from '../../../game/data';
-import { loanLimit, loanPayment, payOffLoan, takeLoan } from '../../../game/engine';
+import { INSURANCE_COVERAGE, INSURANCE_UNLOCK, getDifficulty } from '../../../game/data';
+import { depositSavings, loanLimit, loanPayment, payOffLoan, takeLoan, toggleInsurance, withdrawSavings } from '../../../game/engine';
 import { money } from '../../../game/format';
-import { totalDebt } from '../../../game/simulation';
+import { costIndex, debtLimit, insurancePremium, interestFactor, overdraftLimit, savingsRate, totalDebt } from '../../../game/simulation';
 import { cn } from '../../../lib/cn';
 import { useActiveGame } from '../../../state/GameContext';
 
@@ -15,7 +15,14 @@ export function FinanceTab() {
   const last = game.history[game.history.length - 1];
   const debt = totalDebt(game);
   const limit = loanLimit(game);
-  const offers = [3000, 5000, 10000, 15000, 20000].filter((v) => v <= limit);
+  const offers = [3000, 5000, 10000, 15000, 20000, 30000, 50000].filter((v) => v <= limit);
+  const maxDebt = debtLimit(game);
+  const overdraft = overdraftLimit(game);
+  const loanRate = diff.loanInterest * interestFactor(game);
+  const inflation = costIndex(game) - 1;
+  const rate = savingsRate(game);
+  const deposits = [1000, 5000, 10000, 25000].filter((v) => v <= game.cash);
+  const withdrawals = [1000, 5000, 10000].filter((v) => v < game.savings);
 
   const dre = last
     ? [
@@ -26,6 +33,8 @@ export function FinanceTab() {
         { label: '(−) Marketing', value: -last.costs.marketing },
         { label: '(−) Salários', value: -last.costs.salaries },
         { label: '(−) Aluguel e ferramentas', value: -(last.costs.rent + last.costs.tools) },
+        ...((last.costs.services ?? 0) > 0.5 ? [{ label: '(−) Fidelidade e seguro', value: -last.costs.services }] : []),
+        ...((last.savingsIncome ?? 0) > 0.5 ? [{ label: '(+) Rendimento da aplicação', value: last.savingsIncome }] : []),
         { label: '(−) Juros', value: -last.costs.interest },
         { label: '(=) Resultado do mês', value: last.profit, strong: true, total: true },
       ]
@@ -40,9 +49,15 @@ export function FinanceTab() {
 
       <div className="grid grid-cols-2 gap-3 md:grid-cols-4">
         <Stat icon={Wallet} label="Saldo" value={money(game.cash)} tone={game.cash < 0 ? 'bad' : 'good'} />
-        <Stat icon={Landmark} label="Dívidas" value={money(debt)} tone={debt > diff.debtLimit * 0.6 ? 'bad' : 'default'} hint={`Limite: ${money(diff.debtLimit)}`} />
-        <Stat icon={ScrollText} label="Receita acumulada" value={money(game.totalRevenue)} />
-        <Stat icon={HandCoins} label="Investido em marketing" value={money(game.totalMarketing)} />
+        <Stat icon={Landmark} label="Dívidas" value={money(debt)} tone={debt > maxDebt * 0.6 ? 'bad' : 'default'} hint={`Limite: ${money(maxDebt)}`} />
+        <Stat icon={PiggyBank} label="Aplicação" value={money(game.savings)} tone={game.savings > 0 ? 'good' : 'default'} hint={`Rende ${(rate * 100).toFixed(1).replace('.', ',')}% ao mês`} />
+        <Stat
+          icon={Flame}
+          label="Inflação acumulada"
+          value={`+${(inflation * 100).toFixed(1).replace('.', ',')}%`}
+          tone={inflation > 0.1 ? 'warn' : 'default'}
+          hint={`${(diff.inflation * 100).toFixed(1).replace('.', ',')}% ao mês em custos e preços do mercado`}
+        />
       </div>
 
       <div className="grid gap-5 lg:grid-cols-2">
@@ -81,18 +96,24 @@ export function FinanceTab() {
           <div className="mt-5">
             <div className="flex justify-between text-xs text-slate-400">
               <span>Dívida total em relação ao limite de falência</span>
-              <span>{money(debt)} / {money(diff.debtLimit)}</span>
+              <span>{money(debt)} / {money(maxDebt)}</span>
             </div>
-            <Meter value={(debt / diff.debtLimit) * 100} size="md" className="mt-1.5" color={debt > diff.debtLimit * 0.6 ? '#f87171' : '#fbbf24'} label="Dívida em relação ao limite" />
+            <Meter value={(debt / maxDebt) * 100} size="md" className="mt-1.5" color={debt > maxDebt * 0.6 ? '#f87171' : '#fbbf24'} label="Dívida em relação ao limite" />
             <p className="mt-2 text-xs text-slate-500">
-              Cheque especial: até {money(diff.overdraftLimit)} negativos, com juros de {Math.round(diff.overdraftInterest * 100)}% ao mês. Passou disso, falência.
+              Cheque especial: até {money(overdraft)} negativos, com juros de {(diff.overdraftInterest * interestFactor(game) * 100).toFixed(1).replace('.', ',')}% ao mês. Passou disso,
+              falência. Os limites crescem com o nível da empresa.
             </p>
           </div>
         </Panel>
       </div>
 
       <Panel>
-        <PanelHeader icon={Landmark} title="Empréstimos" subtitle={`Juros de ${(diff.loanInterest * 100).toFixed(1)}% ao mês, pagos em 12 parcelas. Limite disponível: ${money(limit)}.`} accent="amber" />
+        <PanelHeader
+          icon={Landmark}
+          title="Empréstimos"
+          subtitle={`Juros de ${(loanRate * 100).toFixed(1).replace('.', ',')}% ao mês${game.employees.financeiro > 0 ? ' (negociados pelo analista financeiro)' : ''}, pagos em 12 parcelas. Limite disponível: ${money(limit)}.`}
+          accent="amber"
+        />
         {game.loans.length > 0 && (
           <ul className="mb-4 space-y-2">
             {game.loans.map((loan, i) => (
@@ -125,6 +146,64 @@ export function FinanceTab() {
           <p className="text-sm text-slate-500">Sem limite disponível para novos empréstimos no momento.</p>
         )}
       </Panel>
+
+      <div className="grid gap-5 lg:grid-cols-2">
+        <Panel>
+          <PanelHeader
+            icon={PiggyBank}
+            title="Aplicação financeira"
+            subtitle={`Rende ${(rate * 100).toFixed(1).replace('.', ',')}% ao mês e cobre o caixa sozinha se ele ficar negativo.`}
+            accent="emerald"
+          />
+          <p className="text-sm text-slate-300">
+            Aplicado: <b className="font-display text-lg text-white">{money(game.savings)}</b>
+            {game.savings > 0 && <span className="text-slate-400"> · rende cerca de {money(game.savings * rate)} por mês</span>}
+          </p>
+          <div className="mt-3 flex flex-wrap gap-2" role="group" aria-label="Aplicar dinheiro">
+            {deposits.map((v) => (
+              <Button key={v} size="sm" variant="outline" onClick={() => act((s) => depositSavings(s, v))}>
+                Aplicar {money(v)}
+              </Button>
+            ))}
+            {deposits.length === 0 && <p className="text-xs text-slate-500">Sem caixa sobrando para aplicar agora.</p>}
+          </div>
+          {game.savings >= 1 && (
+            <div className="mt-2 flex flex-wrap gap-2" role="group" aria-label="Resgatar dinheiro">
+              {withdrawals.map((v) => (
+                <Button key={v} size="sm" variant="secondary" onClick={() => act((s) => withdrawSavings(s, v))}>
+                  Resgatar {money(v)}
+                </Button>
+              ))}
+              <Button size="sm" variant="secondary" onClick={() => act((s) => withdrawSavings(s, s.savings))}>
+                Resgatar tudo
+              </Button>
+            </div>
+          )}
+          <p className="mt-3 text-xs text-slate-500">Dinheiro aplicado não paga contas no dia a dia, mas é a sua reserva de emergência e conta no valor da empresa.</p>
+        </Panel>
+
+        <Panel>
+          <PanelHeader
+            icon={Umbrella}
+            title="Seguro empresarial"
+            subtitle={`Devolve ${Math.round(INSURANCE_COVERAGE * 100)}% do prejuízo de eventos ruins (multas, crises, falhas).`}
+            accent="blue"
+          />
+          <p className="text-sm text-slate-300">
+            Mensalidade hoje: <b className="text-white">{money(insurancePremium(game))}/mês</b>
+            <span className="text-slate-400"> (cresce com o tamanho da empresa)</span>
+          </p>
+          {game.level < INSURANCE_UNLOCK && !game.insurance ? (
+            <p className="mt-3 text-sm text-slate-400">Libera no nível {INSURANCE_UNLOCK}.</p>
+          ) : (
+            <Button className="mt-3" size="sm" variant={game.insurance ? 'secondary' : 'primary'} onClick={() => act(toggleInsurance)} icon={<Umbrella className="size-4" aria-hidden />}>
+              {game.insurance ? 'Cancelar o seguro' : 'Contratar o seguro'}
+            </Button>
+          )}
+          {game.insurance && <p className="mt-2 text-xs font-semibold text-emerald-300">Seguro ativo.</p>}
+          <p className="mt-3 text-xs text-slate-500">Seguro é um custo fixo que protege o caixa de surpresas. Vale mais quando um prejuízo grande poderia levar à falência.</p>
+        </Panel>
+      </div>
 
       <Panel>
         <FinanceChart history={game.history} />

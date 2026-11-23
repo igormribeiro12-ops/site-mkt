@@ -5,6 +5,7 @@ import {
   Landmark,
   Receipt,
   Sparkles,
+  Target,
   TrendingDown,
   TrendingUp,
   Users,
@@ -15,6 +16,8 @@ import { FinanceChart, MarketingChart } from '../../../components/charts/Charts'
 import { Badge, Meter, Panel, PanelHeader, Stat } from '../../../components/ui/Panel';
 import { LEVELS, MONTH_LIMIT } from '../../../game/data';
 import { victoryProgress } from '../../../game/engine';
+import { presentCities, presentStates, unitCount } from '../../../game/expansion';
+import { GOAL_INFO, describeGoal, goalValue } from '../../../game/goals';
 import { money, moneyShort, num, numShort } from '../../../game/format';
 import { capacity, totalDebt, valuation } from '../../../game/simulation';
 import type { ModifierKind } from '../../../game/types';
@@ -34,6 +37,53 @@ const MOD_LABEL: Record<ModifierKind, string> = {
   competition: 'Concorrência',
   price: 'Preço',
 };
+
+/** Desafio do mês: meta com prêmio, conferida no fechamento do mês. */
+export function GoalCard() {
+  const { game } = useActiveGame();
+  const g = game.goal;
+  const last = game.history[game.history.length - 1]?.goal;
+  if (!g) {
+    return (
+      <Panel className="flex items-center gap-3 py-3">
+        <Target className="size-5 shrink-0 text-amber-300" aria-hidden />
+        <p className="text-sm text-slate-400">
+          {game.month === 1 ? 'O primeiro desafio do mês chega no fim deste mês.' : 'Sem desafio no momento.'} Cumpra desafios para ganhar dinheiro e reputação.
+        </p>
+      </Panel>
+    );
+  }
+  const info = GOAL_INFO[g.kind];
+  const value = goalValue(game, g);
+  const fmt = (v: number) => (info.format === 'money' ? money(v) : info.format === 'percent' ? `${num(v)}%` : num(v));
+  const done = value >= g.target;
+  return (
+    <Panel className={cn('bg-gradient-to-r', done ? 'from-emerald-600/15 to-transparent' : 'from-amber-500/10 to-transparent')} data-testid="goal-card">
+      <div className="flex flex-wrap items-center gap-3">
+        <span className={cn('flex size-10 shrink-0 items-center justify-center rounded-xl', done ? 'bg-emerald-500/20 text-emerald-300' : 'bg-amber-400/15 text-amber-300')}>
+          <Target className="size-5" aria-hidden />
+        </span>
+        <div className="min-w-0 flex-1">
+          <p className="text-[11px] font-semibold uppercase tracking-wider text-amber-300/90">
+            Desafio do mês {g.month} · prêmio {money(g.reward)} e +2 de reputação
+          </p>
+          <p className="font-display text-base font-bold text-white">
+            {info.title}: {describeGoal(g).charAt(0).toLowerCase() + describeGoal(g).slice(1)}
+          </p>
+        </div>
+        <p className="text-right text-sm tabular-nums text-slate-300">
+          <span className={cn('font-display text-lg font-bold', done ? 'text-emerald-300' : 'text-white')}>{fmt(value)}</span> / {fmt(g.target)}
+        </p>
+      </div>
+      <Meter value={Math.min(1, g.target > 0 ? value / g.target : 0) * 100} size="sm" className="mt-3" label="Progresso do desafio do mês" color={done ? '#34d399' : '#fbbf24'} />
+      {last && last.month === g.month - 1 && (
+        <p className="mt-2 text-xs text-slate-500">
+          Desafio do mês passado: {last.achieved ? `cumprido (+${money(last.reward)})` : 'não cumprido'}.
+        </p>
+      )}
+    </Panel>
+  );
+}
 
 export function DashboardTab({ goTo }: TabProps) {
   const { game } = useActiveGame();
@@ -60,13 +110,14 @@ export function DashboardTab({ goTo }: TabProps) {
         <PanelHeader
           icon={Flag}
           title="Missão: construir seu império"
-          subtitle={`Mês ${game.month} de ${MONTH_LIMIT}. Cumpra as três metas ao mesmo tempo para vencer.`}
+          subtitle={`Mês ${game.month} de ${MONTH_LIMIT}. Cumpra as quatro metas ao mesmo tempo para vencer.`}
           accent="emerald"
         />
-        <div className="grid gap-3 sm:grid-cols-3">
+        <div className="grid gap-3 sm:grid-cols-2 xl:grid-cols-4">
           {[
             { label: 'Receita acumulada', done: victory.revenue.done, value: `${moneyShort(victory.revenue.value)} de ${moneyShort(victory.revenue.target)}`, p: victory.revenue.value / victory.revenue.target },
             { label: `Fase ${LEVELS[victory.level.target - 1]?.title ?? ''}`, done: victory.level.done, value: `Nível ${Math.min(victory.level.value, victory.level.target)} de ${victory.level.target}`, p: victory.level.value / victory.level.target },
+            { label: 'Estados com a sua marca', done: victory.states.done, value: `${Math.min(victory.states.value, victory.states.target)} de ${victory.states.target}`, p: victory.states.value / victory.states.target },
             { label: 'Meses seguidos com lucro', done: victory.streak.done, value: `${Math.min(victory.streak.value, victory.streak.target)} de ${victory.streak.target}`, p: victory.streak.value / victory.streak.target },
           ].map((g) => (
             <div key={g.label} className={cn('rounded-xl p-3 ring-1', g.done ? 'bg-emerald-500/10 ring-emerald-400/30' : 'bg-white/[0.03] ring-white/10')}>
@@ -80,6 +131,8 @@ export function DashboardTab({ goTo }: TabProps) {
           ))}
         </div>
       </Panel>
+
+      <GoalCard />
 
       <div className="grid grid-cols-2 gap-3 md:grid-cols-4">
         <Stat icon={Wallet} label="Saldo disponível" value={money(game.cash)} tone={game.cash < 0 ? 'bad' : 'good'} hint={debt > 0 ? `Dívidas: ${money(debt)}` : 'Sem dívidas'} />
@@ -137,7 +190,8 @@ export function DashboardTab({ goTo }: TabProps) {
               <Meter value={last ? (last.orders / cap) * 100 : 0} size="sm" className="mt-1" color={last && last.orders > cap ? '#f87171' : undefined} label="Uso da capacidade" />
             </div>
             <p className="text-slate-400">
-              Equipe: {Object.values(game.employees).reduce((a, b) => a + b, 0)} funcionário(s) · Linhas de produto: {game.productLines} · Unidades: {game.units}
+              Equipe: {Object.values(game.employees).reduce((a, b) => a + b, 0)} funcionário(s) · Linhas de produto: {game.productLines} · Unidades: {unitCount(game)} em{' '}
+              {presentCities(game).size} {presentCities(game).size === 1 ? 'cidade' : 'cidades'} e {presentStates(game).size} {presentStates(game).size === 1 ? 'estado' : 'estados'}
             </p>
             {game.modifiers.length > 0 ? (
               <div>

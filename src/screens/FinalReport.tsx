@@ -5,6 +5,7 @@ import { Button } from '../components/ui/Button';
 import { Meter, Panel, PanelHeader } from '../components/ui/Panel';
 import { LEVELS, getDifficulty, getSegment } from '../game/data';
 import { continueAfterVictory } from '../game/engine';
+import { presentCities, presentStates } from '../game/expansion';
 import { money, num, pct } from '../game/format';
 import { computeScore, marketingTotals } from '../game/scoring';
 import { valuation } from '../game/simulation';
@@ -126,6 +127,8 @@ export function FinalReport({ onMenu, onNewGame, onContinue }: Props) {
                 ['Nível alcançado', `${game.level} · ${LEVELS[game.level - 1].title}`],
                 ['Melhor mês', best ? `Mês ${best.month} (${money(best.profit)})` : '—'],
                 ['Seguidores', num(game.followers)],
+                ['Presença no Brasil', `${presentCities(game).size} ${presentCities(game).size === 1 ? 'cidade' : 'cidades'} · ${presentStates(game).size} ${presentStates(game).size === 1 ? 'estado' : 'estados'}`],
+                ['Desafios do mês cumpridos', num(game.goalsDone)],
               ].map(([k, v]) => (
                 <div key={k} className="rounded-xl bg-white/[0.03] p-3 ring-1 ring-white/[0.06] print:bg-slate-50">
                   <dt className="text-xs text-slate-500">{k}</dt>
@@ -191,7 +194,7 @@ export function FinalReport({ onMenu, onNewGame, onContinue }: Props) {
           </ol>
         </Panel>
 
-        <p className="pb-6 text-center text-xs text-slate-500">STARTUP TYCOON · Simulação educacional de empreendedorismo e marketing digital.</p>
+        <p className="pb-6 text-center text-xs text-slate-500">CONSTRUA SEU IMPÉRIO · Simulação educacional de empreendedorismo e marketing digital.</p>
       </main>
     </div>
   );

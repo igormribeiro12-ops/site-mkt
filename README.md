@@ -1,8 +1,8 @@
-# STARTUP TYCOON — Construa seu Império
+# Construa seu Império
 
 > *Sua ideia. Seu negócio. Seu império.*
 
-Jogo 2D de simulação de negócios para aulas de Marketing Digital. O aluno cria um personagem, abre uma pequena empresa com **R$ 10.000** de capital fictício e a vê crescer dentro de um cenário animado: anda pelo escritório, atende clientes, compra móveis, contrata funcionários, faz marketing, enfrenta eventos e expande pela cidade.
+Jogo 2D de simulação de negócios para aulas de Marketing Digital. O aluno cria um personagem, abre uma pequena empresa com **R$ 10.000** de capital fictício e a vê crescer dentro de um cenário animado: anda pelo escritório, atende clientes, compra móveis, contrata funcionários, faz marketing, enfrenta eventos e expande pela cidade e depois pelo Brasil, com filiais em 52 cidades dos 27 estados.
 
 Tudo roda no navegador: **sem cadastro, sem servidor e sem APIs pagas**. A partida é salva automaticamente no `localStorage` do dispositivo. Toda a arte (personagens, móveis, prédios, efeitos) é desenhada pelo próprio código — não há imagens de terceiros.
 
@@ -31,37 +31,42 @@ A pasta `dist/` é um site estático: pode ser publicada no GitHub Pages, Netlif
 |---|---|
 | Andar | Setas ou **W A S D** — ou clique/toque no chão |
 | Interagir | Chegue perto e aperte **E** (ou Espaço), ou clique no objeto |
-| Janelas | **1** Construir · **2** Contratar · **3** Comprar · **4** Marketing · **5** Empresa · **6** Missões |
+| Janelas | **1** Construir · **2** Contratar · **3** Comprar · **4** Marketing · **5** Empresa · **6** Missões · **7** Brasil |
 | Tempo | **P** pausa · botões 1x / 2x / 4x no topo |
 | Menu | **Esc** |
 
 ### O começo
 
-1. **Personagem:** nome, sexo (masculino ou feminino, com opção de barba ou saia), tom de pele, cabelo, cor do cabelo, estilo, roupa e **personalidade empreendedora** (criativo, negociador, organizado ou visionário — cada uma dá um bônus). Os moradores, clientes e funcionários também são homens e mulheres.
+1. **Personagem e dificuldade:** fácil, normal, difícil ou lendário (mais crises, menos crédito e inflação mais alta a cada nível). Nome, sexo (masculino ou feminino, com opção de barba ou saia), tom de pele, cabelo, cor do cabelo, estilo, roupa e **personalidade empreendedora** (criativo, negociador, organizado ou visionário — cada uma dá um bônus). Os moradores, clientes e funcionários também são homens e mulheres.
 2. **Empresa:** 13 tipos de negócio — tecnologia, alimentação, lanchonete, moda, beleza, barbearia, pet shop, academia, educação, comércio, assistência técnica, serviços e entretenimento — com nome, produto, slogan, descrição e diferencial. O **assistente de ideias** sugere cada campo (ou preenche todos de uma vez) sem usar internet.
 3. **Escritório inicial:** mesa com computador, cadeira, porta, janelas, decoração e os primeiros móveis do seu tipo de negócio (fogão e mesa para restaurante, chapa para lanchonete, cadeira de barbeiro, banho e tosa, esteiras de academia, bancada de reparos…).
-4. A **mentora** do bairro explica o básico e as **missões** guiam os primeiros passos.
+4. **Cidade-sede:** qualquer uma das 52 cidades do mapa. Ela define o seu estado e a sua região (onde as filiais liberam primeiro).
+5. A **mentora** do bairro explica o básico e as **missões** guiam os primeiros passos.
 
 ### O dia a dia
 
 - **Relógio:** a loja abre às 8h e fecha às 18h. Há amanhecer, entardecer e noite (com postes e luminárias acesos). Abrir qualquer janela pausa o tempo.
 - **Clientes** entram pela porta, olham os produtos, sentam, fazem fila no caixa, pagam (moedas e valor sobem na tela) e vão embora. Quando falta capacidade, alguns vão embora irritados. Curiosos do bairro também passam para dar uma olhada.
 - **Você trabalha:** no computador (melhora o produto), no balcão (melhora o atendimento) ou na produção.
-- **Computador da empresa:** o sistema de gestão com painel, mercado, campanhas, vendas, produto e preço, equipe, finanças e conquistas.
+- **Computador da empresa:** o sistema de gestão com painel, consultor, mercado, campanhas, vendas, produto e preço, equipe, mapa do Brasil, finanças e conquistas.
+- **Desafio do mês:** a partir do 2º mês, uma meta nova (clientes, faturamento, lucro, satisfação ou seguidores) calibrada pelo mês anterior, com prêmio em dinheiro e reputação.
 - **Consultor da empresa:** no painel do computador, analisa os números e simula dezenas de decisões nos próximos 3 meses (campanhas em cada canal, contratações, preço, móveis, ampliação, pausar campanhas ruins, quitar dívidas). Mostra o que é urgente, as melhores oportunidades com o ganho estimado e dicas do dia, cada uma com um botão para agir. Tudo calculado no navegador, sem serviço externo.
 - **Fechamento:** no fim do dia o resultado aparece no cenário; a cada 10 dias o mês fecha com um **relatório educativo**.
 
 ### Crescer
 
 - **Construir:** móveis por categoria (produção, atendimento, equipamentos, decoração) posicionados no piso com prévia verde/vermelha; modo **Organizar** para mover ou vender; **ampliar o espaço** (o cenário cresce) e **decorar** paredes e piso.
-- **Contratar:** atendente, vendedor, marketing, desenvolvedor e gerente. Cada funcionário aparece, chega às 8h, vai até um posto livre e trabalha.
+- **Contratar:** atendente, vendedor, marketing, desenvolvedor, analista financeiro (juros menores e aplicação rendendo mais), gerente e coordenador de logística (frete mais barato entre estados). Cada funcionário aparece, chega às 8h, vai até um posto livre e trabalha.
 - **Marketing:** ações rápidas que acontecem no cenário (publicar conteúdo, gravar vídeo, panfletos na rua, influenciador, feira de negócios) e campanhas mensais em Instagram, TikTok, Google Ads, Facebook, WhatsApp, influenciadores e SEO. Campanhas que dão certo trazem clientes que você vê entrando.
-- **Comprar:** ampliar o escritório, expandir o mercado (libera o centro da cidade), abrir novas unidades, investir em qualidade, lançar produtos e ajustar o preço.
+- **Comprar:** ampliar o escritório, conquistar a cidade toda (libera o centro da cidade), abrir unidades em outros bairros, investir em qualidade, lançar produtos, escolher o fornecedor (econômico, padrão ou premium) e ajustar o preço.
+- **Mapa do Brasil (tecla 7):** os 27 estados em um mapa por regiões. Filiais no seu estado e na sua região liberam no nível 4; no resto do país, no nível 5. Cada filial traz o mercado da cidade (que cresce com a população), cobra aluguel e equipe local e leva 3 meses para render tudo. Estado novo paga inscrição estadual; região nova, um centro de distribuição; cada estado a mais encarece a logística. Filiais podem ser fechadas, com parte do investimento de volta.
+- **Finanças:** aplicação financeira (rende todo mês e cobre o caixa negativo sozinha), seguro empresarial (devolve 60% do prejuízo de eventos ruins), programa de fidelidade (cartão ou clube VIP) e empréstimos com limite que cresce com o nível.
+- **Mais difícil:** a inflação sobe custos e preços do mercado todo mês, os impostos são de 8%, os clientes ficam mais exigentes e os concorrentes reagem quando a empresa cresce.
 - **Cidade:** saia pela porta para o bairro: banco (empréstimos), gráfica (panfletos), agência criativa, loja de móveis, imobiliária e, mais tarde, centro de eventos, centro empresarial, filiais, outdoor e a torre da empresa. A sede cresce em andares com a empresa.
 
 ### Eventos
 
-São 20 eventos (concorrente novo, post viral, crise de custos, fornecedor, investidor-anjo, fiscalização, imprensa, pedido grande e outros). Um personagem vem até você e conversa; cada escolha tem consequências explicadas.
+São 23 eventos (concorrente novo, post viral, crise de custos, fornecedor, investidor-anjo, fiscalização, imprensa, pedido grande, greve dos caminhoneiros, rede rival na sua filial, incentivo fiscal estadual e outros). Um personagem vem até você e conversa; cada escolha tem consequências explicadas.
 
 ### Fases da empresa
 
@@ -69,9 +74,13 @@ Pequeno empreendedor → Pequena empresa → Empresa em crescimento → Empresa 
 
 ### Vitória e derrota
 
-- **Vitória:** R$ 100.000 de receita acumulada **e** a fase *Grande companhia* **e** 3 meses seguidos de lucro. Depois de vencer, dá para continuar no modo livre.
+- **Vitória:** R$ 1 milhão de receita acumulada **e** a fase *Império empresarial* (que pede presença em 5 cidades) **e** presença em 3 estados **e** 4 meses seguidos de lucro. Depois de vencer, dá para continuar no modo livre.
 - **Derrota:** caixa abaixo do limite do cheque especial ou dívidas acima do limite (falência).
-- **Prazo:** 36 meses.
+- **Prazo:** 48 meses.
+
+### Conquistas
+
+66 conquistas em 8 categorias: clientes e vendas, dinheiro e finanças, marketing e marca, equipe, produto e estrutura, expansão pelo Brasil, desafios do mês e lendas.
 
 O **relatório final** mostra o desempenho financeiro, a estratégia de marketing, as principais decisões, a pontuação e a classificação do empreendedor.
 
@@ -81,7 +90,7 @@ As fórmulas estão em [`src/game/simulation.ts`](src/game/simulation.ts) e são
 
 Os clientes que aparecem no cenário são uma representação visual dessa simulação: no início do expediente o jogo calcula o dia e distribui os compradores pelo horário. Quando você muda algo no meio do dia (campanha, preço, móveis), os próximos clientes são recalculados.
 
-O equilíbrio é verificado por "jogadores automáticos" nos testes ([`src/test/bots.ts`](src/test/bots.ts)): uma estratégia equilibrada vence nos 8 mercados, enquanto não fazer nada ou gastar sem planejamento leva à falência.
+O equilíbrio é verificado por "jogadores automáticos" nos testes ([`src/test/bots.ts`](src/test/bots.ts)): uma estratégia equilibrada vence nos 13 mercados e nas 4 dificuldades (entre 13 e 47 meses), enquanto não fazer nada ou gastar sem planejamento leva à falência, e uma estratégia de iniciante não passa do nível 3.
 
 ```bash
 BALANCE=/tmp/equilibrio.tsv npx vitest run src/test/balance.report.test.ts

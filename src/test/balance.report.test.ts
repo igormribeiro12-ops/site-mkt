@@ -13,7 +13,7 @@ test.skipIf(!process.env.BALANCE)('relatório de equilíbrio', () => {
       ['iniciante', novice],
       ['equilibrado', balanced],
     ] as const) {
-      for (const diff of ['normal', 'dificil', 'facil'] as const) {
+      for (const diff of ['normal', 'dificil', 'facil', 'lendario'] as const) {
         if (name !== 'equilibrado' && diff !== 'normal') continue;
         const r = play(seg.id, strat, diff, 777);
         rows.push({ seg: seg.id, bot: name, diff, fase: r.phase, mes: r.month, receita: r.revenue, caixa: r.cash, nivel: r.level, clientes: r.customers });

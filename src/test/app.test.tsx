@@ -40,7 +40,7 @@ describe('tela inicial', () => {
   it('mostra título, frase e botões', async () => {
     const user = setup();
     render(<App />);
-    expect(screen.getByRole('heading', { level: 1 })).toHaveTextContent('STARTUP TYCOON');
+    expect(screen.getByRole('heading', { level: 1 })).toHaveTextContent('CONSTRUA SEU IMPÉRIO');
     expect(screen.getByText(/Seu negócio\./)).toBeInTheDocument();
     expect(screen.getByRole('button', { name: 'CONTINUAR' })).toBeDisabled();
     await user.click(screen.getByRole('button', { name: 'COMO JOGAR' }));
@@ -76,6 +76,7 @@ describe('nova partida', () => {
 
     await user.click(screen.getByRole('radio', { name: /Agência de branding/ }));
     await user.click(screen.getByRole('button', { name: /Continuar/ }));
+    await user.selectOptions(screen.getByRole('combobox', { name: /cidade fica a sede/ }), 'recife');
     await user.click(screen.getByRole('radio', { name: /Premium/ }));
     await user.click(screen.getByRole('button', { name: /Continuar/ }));
 
@@ -89,6 +90,7 @@ describe('nova partida', () => {
     expect(s.player.difficulty).toBe('dificil');
     expect(s.avatar.personality).toBe('organizado');
     expect(s.avatar.hairStyle).toBe('cacheado');
+    expect(s.homeCity).toBe('recife');
     // a missão "Crie sua primeira empresa" já vem concluída (+R$ 500)
     expect(s.cash).toBe(4200);
     expect(s.world.furniture.some((f) => f.type === 'mesa_fundador')).toBe(true);
@@ -162,6 +164,7 @@ describe('jogo', () => {
       ['Comprar', 'Comprar'],
       ['Marketing', 'Marketing'],
       ['Missões', 'Missões'],
+      ['Brasil', 'Brasil'],
     ] as const) {
       await user.click(screen.getByRole('button', { name: label, pressed: false }));
       expect(screen.getByRole('dialog', { name: title })).toBeInTheDocument();
@@ -188,6 +191,48 @@ describe('jogo', () => {
     const before = game().followers;
     await user.click(within(screen.getByTestId('rec-post')).getByRole('button', { name: 'Publicar agora' }));
     expect(game().followers).toBeGreaterThan(before);
+  });
+
+  it('o mapa do Brasil abre com a tecla 7 e abre uma filial em outro estado', async () => {
+    const user = setup();
+    seed(readyGame({ level: 5, scopeLevel: 1, cash: 100_000 }));
+    await continueGame(user);
+    await user.keyboard('7');
+    const map = screen.getByRole('dialog', { name: 'Brasil' });
+    expect(within(map).getByRole('heading', { name: 'Mapa do Brasil' })).toBeInTheDocument();
+    await user.click(within(map).getByRole('button', { name: /^Rio de Janeiro \(RJ\)/ }));
+    expect(within(map).getByText(/estado novo: paga inscrição estadual/)).toBeInTheDocument();
+    await user.click(within(map).getAllByRole('button', { name: /Abrir filial/ })[0]);
+    expect(game().branches.map((b) => b.city)).toEqual(['rio-de-janeiro']);
+    expect(game().cash).toBeLessThan(100_000);
+    expect(within(map).getByText('Filial aberta')).toBeInTheDocument();
+    // fechar pede confirmação
+    await user.click(within(map).getByRole('button', { name: 'Fechar filial' }));
+    await user.click(within(map).getByRole('button', { name: /Fechar e receber/ }));
+    expect(game().branches).toHaveLength(0);
+  });
+
+  it('desafio do mês no painel e aplicação financeira nas finanças', async () => {
+    const user = setup();
+    const next = advanceMonth(readyGame()).state;
+    seed({ ...next, unseenReport: false, pendingEvent: null, cash: 8000 });
+    await continueGame(user);
+    expect(screen.getByTestId('hud-goal')).toHaveTextContent('Desafio');
+    await user.click(screen.getByRole('button', { name: 'Empresa', pressed: false }));
+    expect(screen.getByTestId('goal-card')).toHaveTextContent('Desafio do mês 2');
+    await user.click(within(screen.getByRole('dialog', { name: 'Computador da empresa' })).getByRole('button', { name: 'Finanças' }));
+    await user.click(screen.getByRole('button', { name: /Aplicar R\$\s1\.000/ }));
+    expect(game().savings).toBe(1000);
+    expect(game().cash).toBe(7000);
+  });
+
+  it('partida salva na versão antiga continua abrindo', async () => {
+    const user = setup();
+    const { branches: _b, homeCity: _h, ...old } = readyGame();
+    seed({ ...old, units: 2 } as unknown as GameState);
+    await continueGame(user);
+    expect(game().homeCity).toBe('sao-paulo');
+    expect(game().branches).toHaveLength(1);
   });
 
   it('comprar um móvel entra no modo de posicionamento', async () => {

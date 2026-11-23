@@ -1,6 +1,7 @@
 import type { LucideIcon } from 'lucide-react';
 import {
   Briefcase,
+  Calculator,
   Code2,
   Cpu,
   Clapperboard,
@@ -15,6 +16,7 @@ import {
   Smartphone,
   Sparkles,
   Store,
+  Truck,
   UserRoundCog,
   UtensilsCrossed,
   Wrench,
@@ -24,19 +26,21 @@ import type {
   ConceptId,
   DesignPackageId,
   DifficultyId,
+  LoyaltyLevel,
   ObjectiveId,
   ProductTierId,
   RoleId,
   SegmentId,
   StartStructureId,
+  SupplierId,
 } from './types';
 
 export const STARTING_CAPITAL = 10_000;
-export const MONTH_LIMIT = 36;
-export const VICTORY_REVENUE = 100_000;
-export const VICTORY_LEVEL = 5;
-export const VICTORY_STREAK = 3;
-export const TAX_RATE = 0.06;
+export const MONTH_LIMIT = 48;
+export const VICTORY_LEVEL = 6;
+export const VICTORY_STREAK = 4;
+export const VICTORY_STATES = 3;
+export const TAX_RATE = 0.08;
 
 // ---------------------------------------------------------------------------
 // Mercados
@@ -604,9 +608,9 @@ export const ROLES: Role[] = [
     id: 'atendente',
     label: 'Atendente',
     icon: Headset,
-    salary: 1600,
+    salary: 1750,
     unlockLevel: 1,
-    max: 10,
+    max: 12,
     benefit: 'Mais clientes atendidos por mês com qualidade',
     impact: 'Melhora a satisfação quando há muitos pedidos.',
   },
@@ -614,9 +618,9 @@ export const ROLES: Role[] = [
     id: 'vendedor',
     label: 'Vendedor',
     icon: Briefcase,
-    salary: 2000,
+    salary: 2100,
     unlockLevel: 1,
-    max: 4,
+    max: 5,
     benefit: '+6 p.p. na conversão de leads e +5% nas vendas',
     impact: 'Transforma contatos interessados em clientes.',
   },
@@ -624,9 +628,9 @@ export const ROLES: Role[] = [
     id: 'marketing',
     label: 'Profissional de marketing',
     icon: Megaphone,
-    salary: 2600,
+    salary: 2800,
     unlockLevel: 2,
-    max: 2,
+    max: 3,
     benefit: '+20% de alcance nas campanhas e +250 seguidores/mês',
     impact: 'Campanhas mais eficientes e conteúdo orgânico.',
   },
@@ -634,21 +638,41 @@ export const ROLES: Role[] = [
     id: 'desenvolvedor',
     label: 'Desenvolvedor de produto',
     icon: Code2,
-    salary: 3200,
+    salary: 3400,
     unlockLevel: 3,
     max: 2,
     benefit: '+3 de qualidade por mês e custo de produção 3% menor',
     impact: 'Inovação contínua no produto.',
   },
   {
+    id: 'financeiro',
+    label: 'Analista financeiro',
+    icon: Calculator,
+    salary: 3000,
+    unlockLevel: 3,
+    max: 1,
+    benefit: '−25% nos juros, +0,3 p.p. no rendimento das aplicações e 5% menos custos fixos',
+    impact: 'Cuida do caixa, negocia com o banco e corta desperdícios.',
+  },
+  {
     id: 'gerente',
     label: 'Gerente',
     icon: UserRoundCog,
-    salary: 4200,
+    salary: 4500,
     unlockLevel: 4,
     max: 1,
     benefit: '+15% de capacidade e 8% menos custos fixos',
     impact: 'Organiza a operação e reduz desperdícios.',
+  },
+  {
+    id: 'logistica',
+    label: 'Coordenador de logística',
+    icon: Truck,
+    salary: 3800,
+    unlockLevel: 4,
+    max: 2,
+    benefit: '−4% no custo de produção, +8% de capacidade e −35% no custo de levar produtos a outros estados',
+    impact: 'Essencial para uma rede de filiais pelo Brasil.',
   },
 ];
 
@@ -681,20 +705,110 @@ export interface Scope {
   unlockLevel: number;
 }
 
+/** Alcance dentro da cidade da sede. Outras cidades e estados vêm com as filiais (veja geo.ts e expansion.ts). */
 export const SCOPES: Scope[] = [
   { level: 0, label: 'Bairro', multiplier: 1, cost: 0, unlockLevel: 1 },
-  { level: 1, label: 'Cidade', multiplier: 2.2, cost: 6000, unlockLevel: 3 },
-  { level: 2, label: 'Estado', multiplier: 5, cost: 20000, unlockLevel: 4 },
-  { level: 3, label: 'Brasil', multiplier: 12, cost: 60000, unlockLevel: 5 },
+  { level: 1, label: 'Cidade toda', multiplier: 2.2, cost: 7000, unlockLevel: 3 },
 ];
 
+/** Filial em outro bairro da cidade da sede. */
 export const NEW_UNIT_COST = 15000;
 export const NEW_UNIT_UNLOCK = 4;
-export const NEW_UNIT_RENT = 1500;
+export const NEW_UNIT_RENT = 1600;
+export const MAX_HOME_UNITS = 3;
+/** Filiais em outras cidades: no seu estado e na sua região a partir deste nível; no resto do Brasil, no seguinte. */
+export const BRANCH_UNLOCK = 4;
+export const NATIONAL_UNLOCK = 5;
+/** Inscrição estadual e licenças ao entrar em um estado novo. */
+export const STATE_FEE = 4000;
+/** Centro de distribuição ao entrar em outra região do país. */
+export const REGION_FEE = 3000;
+/** Custo extra de produção por estado além do primeiro (transporte e distribuição). */
+export const LOGISTICS_PER_STATE = 0.025;
+/** Meses até uma filial atingir todo o potencial de vendas. */
+export const BRANCH_RAMP_MONTHS = 3;
 export const PRODUCT_LAUNCH_UNLOCK = 2;
 export const RD_COST = 1000;
 export const MAX_PRODUCT_LINES = 5;
-export const TOOLS_COST = 250;
+export const TOOLS_COST = 300;
+
+// ---------------------------------------------------------------------------
+// Fornecedores, fidelidade, seguro e aplicação financeira
+// ---------------------------------------------------------------------------
+
+export interface Supplier {
+  id: SupplierId;
+  label: string;
+  description: string;
+  /** Multiplica o custo de produção. */
+  costMult: number;
+  /** Soma à qualidade percebida. */
+  quality: number;
+}
+
+export const SUPPLIERS: Supplier[] = [
+  { id: 'economico', label: 'Econômico', description: 'Matéria-prima mais barata, mas o cliente percebe a diferença.', costMult: 0.82, quality: -8 },
+  { id: 'padrao', label: 'Padrão', description: 'Equilíbrio entre preço e qualidade.', costMult: 1, quality: 0 },
+  { id: 'premium', label: 'Premium', description: 'Os melhores insumos do mercado: produto melhor, custo maior.', costMult: 1.22, quality: 8 },
+];
+
+export const SUPPLIER_SWITCH_COST = 500;
+
+export function getSupplier(id: SupplierId): Supplier {
+  return SUPPLIERS.find((s) => s.id === id) ?? SUPPLIERS[1];
+}
+
+export interface LoyaltyProgram {
+  level: LoyaltyLevel;
+  label: string;
+  description: string;
+  unlockLevel: number;
+  monthlyCost: number;
+  /** Desconto dado aos clientes em toda compra. */
+  discount: number;
+  /** Aumento na recompra dos clientes ativos. */
+  repeatBoost: number;
+  /** Pontos a mais de clientes que continuam ativos a cada mês. */
+  retention: number;
+  satisfaction: number;
+}
+
+export const LOYALTY_PROGRAMS: LoyaltyProgram[] = [
+  { level: 0, label: 'Sem programa', description: 'Nenhum benefício para quem volta a comprar.', unlockLevel: 1, monthlyCost: 0, discount: 0, repeatBoost: 0, retention: 0, satisfaction: 0 },
+  {
+    level: 1,
+    label: 'Cartão fidelidade',
+    description: 'A cada compra o cliente junta pontos e ganha descontos.',
+    unlockLevel: 2,
+    monthlyCost: 350,
+    discount: 0.03,
+    repeatBoost: 0.2,
+    retention: 0.03,
+    satisfaction: 2,
+  },
+  {
+    level: 2,
+    label: 'Clube VIP',
+    description: 'Assinatura com vantagens exclusivas, atendimento prioritário e brindes.',
+    unlockLevel: 4,
+    monthlyCost: 1400,
+    discount: 0.05,
+    repeatBoost: 0.4,
+    retention: 0.06,
+    satisfaction: 4,
+  },
+];
+
+export function getLoyalty(level: LoyaltyLevel): LoyaltyProgram {
+  return LOYALTY_PROGRAMS[level] ?? LOYALTY_PROGRAMS[0];
+}
+
+export const INSURANCE_UNLOCK = 2;
+/** Parte do prejuízo de eventos ruins que o seguro devolve. */
+export const INSURANCE_COVERAGE = 0.6;
+export const SAVINGS_UNLOCK = 1;
+/** Rendimento da aplicação financeira por mês. */
+export const SAVINGS_RATE = 0.007;
 
 export function productLaunchCost(currentLines: number): number {
   return 2500 * currentLines;
@@ -704,10 +818,22 @@ export function productLaunchCost(currentLines: number): number {
 // Níveis e dificuldade
 // ---------------------------------------------------------------------------
 
+export interface LevelRequirements {
+  revenue: number;
+  customers: number;
+  reputation?: number;
+  satisfaction?: number;
+  employees?: number;
+  /** Cidades com presença da empresa (a sede conta). */
+  cities?: number;
+  /** Estados com presença da empresa (o da sede conta). */
+  states?: number;
+}
+
 export interface LevelDef {
   level: number;
   title: string;
-  requirements: { revenue: number; customers: number; reputation?: number; satisfaction?: number; employees?: number; expansions?: number };
+  requirements: LevelRequirements;
   unlocks: string[];
 }
 
@@ -716,39 +842,41 @@ export const LEVELS: LevelDef[] = [
     level: 1,
     title: 'Pequeno empreendedor',
     requirements: { revenue: 0, customers: 0 },
-    unlocks: ['Instagram, Facebook e WhatsApp Business', 'Contratar atendente e vendedor', 'Investir em qualidade (P&D)'],
+    unlocks: ['Instagram, Facebook e WhatsApp Business', 'Contratar atendente e vendedor', 'Investir em qualidade (P&D)', 'Escolher fornecedores', 'Aplicação financeira'],
   },
   {
     level: 2,
     title: 'Pequena empresa',
-    requirements: { revenue: 5000, customers: 50 },
-    unlocks: ['TikTok e Google Ads', 'Profissional de marketing', 'Lançar novos produtos', 'Empréstimos maiores'],
+    requirements: { revenue: 8000, customers: 80 },
+    unlocks: ['TikTok e Google Ads', 'Profissional de marketing', 'Lançar novos produtos', 'Cartão fidelidade', 'Seguro empresarial', 'Empréstimos maiores'],
   },
   {
     level: 3,
     title: 'Empresa em crescimento',
-    requirements: { revenue: 20000, customers: 200, reputation: 40 },
-    unlocks: ['Marketing de influência e SEO', 'Desenvolvedor de produto', 'Expandir para a cidade'],
+    requirements: { revenue: 32000, customers: 320, reputation: 45 },
+    unlocks: ['Marketing de influência e SEO', 'Desenvolvedor de produto', 'Analista financeiro', 'Expandir para a cidade toda'],
   },
   {
     level: 4,
     title: 'Empresa consolidada',
-    requirements: { revenue: 45000, customers: 500, employees: 2 },
-    unlocks: ['Gerente', 'Abrir novas unidades', 'Expandir para o estado'],
+    requirements: { revenue: 85000, customers: 900, employees: 3, satisfaction: 60 },
+    unlocks: ['Gerente e coordenador de logística', 'Clube VIP', 'Filiais na sua cidade, no seu estado e na sua região'],
   },
   {
     level: 5,
     title: 'Grande companhia',
-    requirements: { revenue: 80000, customers: 1000, reputation: 60, satisfaction: 65 },
-    unlocks: ['Expandir para todo o Brasil'],
+    requirements: { revenue: 250000, customers: 2500, reputation: 60, satisfaction: 65, cities: 2 },
+    unlocks: ['Filiais em todos os estados do Brasil'],
   },
   {
     level: 6,
     title: 'Império empresarial',
-    requirements: { revenue: 200000, customers: 3000, expansions: 2 },
+    requirements: { revenue: 1_000_000, customers: 6000, reputation: 65, cities: 5, states: 3 },
     unlocks: ['Status máximo: seu império está construído!'],
   },
 ];
+
+export const VICTORY_REVENUE = LEVELS[VICTORY_LEVEL - 1].requirements.revenue;
 
 export interface Difficulty {
   id: DifficultyId;
@@ -762,47 +890,66 @@ export interface Difficulty {
   eventChance: number;
   badEventWeight: number;
   maxLoan: number;
+  /** Aumento dos custos (produção, aluguel e ferramentas) a cada mês. */
+  inflation: number;
 }
 
 export const DIFFICULTIES: Difficulty[] = [
   {
     id: 'facil',
     label: 'Fácil',
-    description: 'Mercado mais aquecido, mais crédito e menos crises. Ideal para aprender.',
-    demandMult: 1.2,
-    overdraftLimit: 8000,
-    debtLimit: 30000,
-    overdraftInterest: 0.03,
-    loanInterest: 0.015,
-    eventChance: 0.4,
-    badEventWeight: 0.6,
+    description: 'Mercado aquecido, mais crédito, inflação baixa e menos crises. Ideal para aprender.',
+    demandMult: 1.15,
+    overdraftLimit: 6000,
+    debtLimit: 25000,
+    overdraftInterest: 0.035,
+    loanInterest: 0.02,
+    eventChance: 0.5,
+    badEventWeight: 0.8,
     maxLoan: 20000,
+    inflation: 0.002,
   },
   {
     id: 'normal',
     label: 'Normal',
-    description: 'O equilíbrio recomendado: decisões ruins custam caro.',
+    description: 'O desafio recomendado: decisões ruins custam caro e os custos sobem com o tempo.',
     demandMult: 1,
-    overdraftLimit: 5000,
-    debtLimit: 20000,
-    overdraftInterest: 0.05,
-    loanInterest: 0.025,
-    eventChance: 0.5,
-    badEventWeight: 1,
+    overdraftLimit: 4000,
+    debtLimit: 18000,
+    overdraftInterest: 0.06,
+    loanInterest: 0.03,
+    eventChance: 0.6,
+    badEventWeight: 1.2,
     maxLoan: 15000,
+    inflation: 0.004,
   },
   {
     id: 'dificil',
     label: 'Difícil',
-    description: 'Clientes exigentes, pouco crédito e muitas crises. Para quem gosta de desafio.',
-    demandMult: 0.85,
+    description: 'Clientes exigentes, pouco crédito, inflação alta e muitas crises.',
+    demandMult: 0.86,
     overdraftLimit: 2000,
     debtLimit: 12000,
     overdraftInterest: 0.08,
-    loanInterest: 0.035,
-    eventChance: 0.6,
-    badEventWeight: 1.4,
+    loanInterest: 0.04,
+    eventChance: 0.7,
+    badEventWeight: 1.5,
     maxLoan: 10000,
+    inflation: 0.006,
+  },
+  {
+    id: 'lendario',
+    label: 'Lendário',
+    description: 'Mercado fraco, crédito escasso e crise atrás de crise. Só para quem já venceu no difícil.',
+    demandMult: 0.76,
+    overdraftLimit: 1000,
+    debtLimit: 8000,
+    overdraftInterest: 0.1,
+    loanInterest: 0.05,
+    eventChance: 0.8,
+    badEventWeight: 1.9,
+    maxLoan: 8000,
+    inflation: 0.008,
   },
 ];
 

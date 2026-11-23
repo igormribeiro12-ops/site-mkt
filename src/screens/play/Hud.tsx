@@ -1,8 +1,9 @@
-import { Coins, Menu, Moon, Pause, Play, Sun, Sunrise, Target } from 'lucide-react';
+import { Check, Coins, Menu, Moon, Pause, Play, Sun, Sunrise, Target } from 'lucide-react';
 import { LogoMark } from '../../components/CompanyLogo';
 import { AnimatedNumber, Meter } from '../../components/ui/Panel';
 import { LEVELS } from '../../game/data';
 import { money } from '../../game/format';
+import { GOAL_INFO, describeGoal, goalValue } from '../../game/goals';
 import { currentMission } from '../../game/missions';
 import { DAYS_PER_MONTH } from '../../game/simulation';
 import { cn } from '../../lib/cn';
@@ -35,6 +36,9 @@ export function Hud() {
   const level = LEVELS[game.level - 1];
   const progress = levelProgress(game);
   const dayProgress = Math.min(1, Math.max(0, (minute - OPEN) / (CLOSE - OPEN)));
+  const goal = game.goal;
+  const goalProgress = goal && goal.target > 0 ? Math.min(1, Math.max(0, goalValue(game, goal) / goal.target)) : 0;
+  const goalDone = goalProgress >= 1;
 
   return (
     <div onClickCapture={blurAfterMouseClick} className="pointer-events-none absolute inset-x-0 top-0 z-30 flex items-start gap-2 p-2 sm:p-3">
@@ -118,6 +122,24 @@ export function Hud() {
       </div>
 
       <div className="flex-1" />
+
+      {/* Desafio do mês */}
+      {goal && (
+        <button
+          type="button"
+          onClick={() => patchUi({ panel: 'computer', computerApp: 'painel' })}
+          className="pointer-events-auto hidden w-44 rounded-2xl border border-white/10 bg-ink-950/75 px-3 py-2 text-left shadow-xl backdrop-blur-md transition hover:border-amber-300/50 xl:block"
+          data-testid="hud-goal"
+          title={describeGoal(goal)}
+        >
+          <span className="flex items-center justify-between text-[10px] font-bold uppercase tracking-wider text-amber-300/90">
+            Desafio · +{money(goal.reward)}
+            {goalDone && <Check className="size-3.5 text-emerald-300" aria-label="cumprido" />}
+          </span>
+          <span className="block truncate text-xs font-semibold text-white">{GOAL_INFO[goal.kind].title}</span>
+          <Meter value={goalProgress * 100} size="xs" className="mt-1" label="Progresso do desafio do mês" color={goalDone ? '#34d399' : '#fbbf24'} />
+        </button>
+      )}
 
       {/* Missão atual */}
       {mission && (

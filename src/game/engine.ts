@@ -5,30 +5,38 @@ import { unlockAchievements } from './achievements';
 import {
   DESIGN_PACKAGES,
   INFRA,
+  INSURANCE_UNLOCK,
+  INSURANCE_COVERAGE,
   LEVELS,
   MAX_PRODUCT_LINES,
   MONTH_LIMIT,
-  NEW_UNIT_COST,
-  NEW_UNIT_UNLOCK,
   PRODUCT_LAUNCH_UNLOCK,
   PRODUCT_TIERS,
   RD_COST,
   ROLES,
+  SAVINGS_UNLOCK,
   SCOPES,
   START_STRUCTURES,
   STARTING_CAPITAL,
+  SUPPLIER_SWITCH_COST,
   VICTORY_LEVEL,
   VICTORY_REVENUE,
+  VICTORY_STATES,
   VICTORY_STREAK,
   getChannel,
   getDifficulty,
+  getLoyalty,
   getRole,
   getSegment,
+  getSupplier,
   productLaunchCost,
 } from './data';
 import { getEvent, isChoiceAvailable } from './events';
 import { rollEvent } from './events';
+import { branchCloseRefund, branchOpenCost, checkCity, homeCity, presentCities, presentStates } from './expansion';
 import { clamp, money } from './format';
+import { DEFAULT_HOME_CITY, cityLabel, getCity } from './geo';
+import { createGoal, settleGoal } from './goals';
 import { createId } from './id';
 import { buildInsights } from './insights';
 import { newSeed } from './rng';
@@ -36,8 +44,34 @@ import { getFurniture, ROOM_SIZES, starterLayout } from './furniture';
 import { canPlace } from './layout';
 import { completeMissions, isUnlocked, type MissionDef } from './missions';
 import { rngFor } from './rng';
-import { DAYS_PER_MONTH, addDay, closeMonth, employeeCount, simulateDay, simulateMonth, totalDebt, type BaseReport } from './simulation';
-import type { Campaign, DayResult, DecisionLog, GameState, Loan, MonthReport, PlacedItem, RoleId, SetupDraft, WorldState } from './types';
+import {
+  DAYS_PER_MONTH,
+  addDay,
+  closeMonth,
+  creditScale,
+  debtLimit,
+  employeeCount,
+  overdraftLimit,
+  simulateDay,
+  simulateMonth,
+  totalDebt,
+  type BaseReport,
+} from './simulation';
+import type {
+  Branch,
+  Campaign,
+  DayResult,
+  DecisionLog,
+  GameState,
+  Loan,
+  LoyaltyLevel,
+  MonthReport,
+  PlacedItem,
+  RoleId,
+  SetupDraft,
+  SupplierId,
+  WorldState,
+} from './types';
 
 export type ActionResult = { ok: true; state: GameState; message: string } | { ok: false; error: string };
 
@@ -96,6 +130,10 @@ export function initialWorld(segment: SetupDraft['segment'], cash: number): Worl
   };
 }
 
+export function emptyTeam(): Record<RoleId, number> {
+  return { atendente: 0, vendedor: 0, marketing: 0, desenvolvedor: 0, gerente: 0, financeiro: 0, logistica: 0 };
+}
+
 export function createGame(d: SetupDraft, seed = newSeed()): GameState {
   if (!d.segment) throw new Error('Escolha um segmento.');
   const seg = getSegment(d.segment);
@@ -132,9 +170,16 @@ export function createGame(d: SetupDraft, seed = newSeed()): GameState {
     rdInvestments: 0,
     productLines: 1,
     infraLevel: structure.infraLevel,
-    units: 1,
     scopeLevel: 0,
-    employees: { atendente: 0, vendedor: 0, marketing: 0, desenvolvedor: 0, gerente: 0 },
+    homeCity: getCity(d.homeCity) ? d.homeCity : DEFAULT_HOME_CITY,
+    branches: [],
+    supplier: 'padrao',
+    loyalty: 0,
+    insurance: false,
+    savings: 0,
+    goal: null,
+    goalsDone: 0,
+    employees: emptyTeam(),
     salaryBonus: 0,
     satisfaction: 70,
     reputation: 25 + design.reputation,
@@ -167,7 +212,7 @@ export function createGame(d: SetupDraft, seed = newSeed()): GameState {
   return log(
     opened,
     'setup',
-    `Abriu a ${state.company.name} em ${seg.label} com ${money(costs.total)} de investimento inicial (identidade: ${design.label.toLowerCase()}, produto ${tier.label.toLowerCase()}, ${structure.label.toLowerCase()}).`,
+    `Abriu a ${state.company.name} (${seg.label}) em ${cityLabel(state.homeCity)} com ${money(costs.total)} de investimento inicial (identidade: ${design.label.toLowerCase()}, produto ${tier.label.toLowerCase()}, ${structure.label.toLowerCase()}).`,
   );
 }
 
@@ -183,7 +228,8 @@ export function meetsLevel(s: GameState, level: number): boolean {
     (req.reputation === undefined || s.reputation >= req.reputation) &&
     (req.satisfaction === undefined || s.satisfaction >= req.satisfaction) &&
     (req.employees === undefined || employeeCount(s) >= req.employees) &&
-    (req.expansions === undefined || s.units - 1 + s.scopeLevel >= req.expansions)
+    (req.cities === undefined || presentCities(s).size >= req.cities) &&
+    (req.states === undefined || presentStates(s).size >= req.states)
   );
 }
 
@@ -195,25 +241,27 @@ export function computeLevel(s: GameState): number {
 }
 
 export function victoryProgress(s: GameState) {
+  const states = presentStates(s).size;
   return {
     revenue: { done: s.totalRevenue >= VICTORY_REVENUE, value: s.totalRevenue, target: VICTORY_REVENUE },
     level: { done: s.level >= VICTORY_LEVEL, value: s.level, target: VICTORY_LEVEL },
+    states: { done: states >= VICTORY_STATES, value: states, target: VICTORY_STATES },
     streak: { done: s.profitStreak >= VICTORY_STREAK, value: s.profitStreak, target: VICTORY_STREAK },
   };
 }
 
 export function isVictory(s: GameState): boolean {
   const v = victoryProgress(s);
-  return v.revenue.done && v.level.done && v.streak.done;
+  return v.revenue.done && v.level.done && v.states.done && v.streak.done;
 }
 
 export function defeatReason(s: GameState): string | null {
-  const diff = getDifficulty(s.player.difficulty);
-  if (s.cash < -diff.overdraftLimit)
-    return `Falência: o caixa ficou em ${money(s.cash)}, além do limite do cheque especial (${money(-diff.overdraftLimit)}). Sem dinheiro para pagar as contas, a empresa fechou.`;
+  const overdraft = overdraftLimit(s);
+  if (s.cash < -overdraft)
+    return `Falência: o caixa ficou em ${money(s.cash)}, além do limite do cheque especial (${money(-overdraft)}). Sem dinheiro para pagar as contas, a empresa fechou.`;
   const debt = totalDebt(s);
-  if (debt > diff.debtLimit)
-    return `Falência: as dívidas chegaram a ${money(debt)}, acima do limite de ${money(diff.debtLimit)}. Os credores pediram a falência da empresa.`;
+  const limit = debtLimit(s);
+  if (debt > limit) return `Falência: as dívidas chegaram a ${money(debt)}, acima do limite de ${money(limit)}. Os credores pediram a falência da empresa.`;
   return null;
 }
 
@@ -229,10 +277,13 @@ function finalizeMonth(before: GameState, closed: GameState, base: BaseReport): 
   const levelUp = newLevel > before.level ? newLevel : null;
   s = { ...s, level: newLevel };
 
-  const partial: MonthReport = { ...base, insights, concept, achievements: [], levelUp };
+  let partial: MonthReport = { ...base, insights, concept, achievements: [], levelUp, goal: null };
+  const settled = settleGoal(s, partial);
+  s = settled.state;
+  partial = { ...partial, goal: settled.result };
   const ach = unlockAchievements(s, partial);
   s = ach.state;
-  const report: MonthReport = { ...partial, achievements: ach.unlocked };
+  let report: MonthReport = { ...partial, achievements: ach.unlocked };
   s = { ...s, history: [...s.history, report], unseenReport: true, lastEventOutcome: null };
   const ms = completeMissions(s);
   s = ms.state;
@@ -244,7 +295,7 @@ function finalizeMonth(before: GameState, closed: GameState, base: BaseReport): 
     s = {
       ...s,
       phase: 'won',
-      endReason: `Vitória! A ${s.company.name} faturou ${money(s.totalRevenue)}, virou uma grande companhia e lucrou ${s.profitStreak} meses seguidos.`,
+      endReason: `Vitória! A ${s.company.name} faturou ${money(s.totalRevenue)}, virou um império presente em ${presentStates(s).size} estados e lucrou ${s.profitStreak} meses seguidos.`,
     };
   } else if (!s.freePlay && s.month > MONTH_LIMIT) {
     s = {
@@ -264,7 +315,14 @@ function finalizeMonth(before: GameState, closed: GameState, base: BaseReport): 
       };
     }
   }
-  return { state: touch(s), report, missions: ms.completed, achievements: ach.unlocked };
+  // Conquistas que dependem do fim de jogo (vitória) e o desafio do próximo mês.
+  const late = unlockAchievements(s, report);
+  if (late.unlocked.length) {
+    report = { ...report, achievements: [...report.achievements, ...late.unlocked] };
+    s = { ...late.state, history: [...late.state.history.slice(0, -1), report] };
+  }
+  if (s.phase === 'playing') s = { ...s, goal: createGoal(s) };
+  return { state: touch(s), report, missions: ms.completed, achievements: [...ach.unlocked, ...late.unlocked] };
 }
 
 /** Simula um mês inteiro de uma vez (usado nos testes de equilíbrio). */
@@ -331,12 +389,20 @@ export function resolveEvent(state: GameState, choiceId: string): ActionResult {
   const choice = event?.choices.find((c) => c.id === choiceId);
   if (!event || !choice) return { ok: false, error: 'Escolha inválida.' };
   if (!isChoiceAvailable(state, choice)) return { ok: false, error: choice.unavailableReason ?? 'Saldo insuficiente.' };
-  const { state: applied, text } = choice.apply(state);
+  const { state: applied, text: baseText } = choice.apply(state);
+  let text = baseText;
+  let covered = applied;
+  const loss = state.cash - applied.cash;
+  if (event.tone === 'bad' && state.insurance && loss > 0) {
+    const refund = Math.round(loss * INSURANCE_COVERAGE);
+    covered = { ...applied, cash: applied.cash + refund };
+    text = `${baseText} O seguro empresarial cobriu ${money(refund)} do prejuízo.`;
+  }
   let s: GameState = {
-    ...applied,
+    ...covered,
     pendingEvent: null,
     lastEventOutcome: { eventId: event.id, title: event.title, choiceLabel: choice.label, text, month: state.month },
-    world: { ...applied.world, eventDay: null, competitorOpen: applied.world.competitorOpen || event.id === 'concorrente' },
+    world: { ...covered.world, eventDay: null, competitorOpen: covered.world.competitorOpen || event.id === 'concorrente' },
   };
   s = log(s, 'event', `${event.title}: ${choice.label.toLowerCase()}.`);
   s = unlockAchievements(s).state;
@@ -469,26 +535,63 @@ export function upgradeInfra(state: GameState): ActionResult {
   );
 }
 
+/** Custo de uma nova unidade em outro bairro da cidade da sede. */
 export function newUnitCost(state: GameState): number {
-  return NEW_UNIT_COST * state.units;
+  return branchOpenCost(state, state.homeCity).total;
 }
 
-export function openUnit(state: GameState): ActionResult {
-  if (state.level < NEW_UNIT_UNLOCK) return { ok: false, error: `Novas unidades liberam no nível ${NEW_UNIT_UNLOCK}.` };
-  const cost = newUnitCost(state);
-  const err = spend(state, cost);
+/** Abre uma filial: em outro bairro da cidade da sede ou em outra cidade do Brasil. */
+export function openBranch(state: GameState, cityId: string): ActionResult {
+  const city = getCity(cityId);
+  if (!city) return { ok: false, error: 'Cidade desconhecida.' };
+  const check = checkCity(state, cityId);
+  if (check.reason) return { ok: false, error: check.reason };
+  const cost = branchOpenCost(state, cityId);
+  const err = spend(state, cost.total);
   if (err) return err;
+  const newState = !presentStates(state).has(city.uf);
+  const branch: Branch = { id: createId('filial'), city: cityId, month: state.month };
+  const isHome = cityId === state.homeCity;
+  const fees = [cost.stateFee ? `inscrição estadual ${money(cost.stateFee)}` : '', cost.regionFee ? `centro de distribuição ${money(cost.regionFee)}` : ''].filter(Boolean).join(' e ');
   return finish(
-    { ...state, cash: state.cash - cost, units: state.units + 1 },
+    { ...state, cash: state.cash - cost.total, branches: [...state.branches, branch], awareness: clamp(state.awareness + 2, 0, 100) },
     'expansion',
-    `Abriu a unidade nº ${state.units + 1} (${money(cost)}).`,
-    'Nova unidade aberta! Mais capacidade e mais clientes na região.',
+    isHome
+      ? `Abriu uma nova unidade em outro bairro de ${city.name} (${money(cost.total)}).`
+      : `Abriu filial em ${city.name} (${city.uf}) por ${money(cost.total)}${fees ? `, incluindo ${fees}` : ''}.`,
+    isHome
+      ? 'Nova unidade aberta! Mais capacidade e mais clientes na sua cidade.'
+      : `Filial inaugurada em ${city.name}!${newState ? ` Você conquistou um novo estado: ${city.uf}.` : ''} As vendas da cidade crescem nos próximos meses.`,
+  );
+}
+
+/** Abre uma nova unidade na cidade da sede. */
+export function openUnit(state: GameState): ActionResult {
+  return openBranch(state, state.homeCity);
+}
+
+/** Fecha uma filial: corta o aluguel e a equipe local e recupera parte do investimento. */
+export function closeBranch(state: GameState, branchId: string): ActionResult {
+  const b = state.branches.find((x) => x.id === branchId);
+  if (!b) return { ok: false, error: 'Filial não encontrada.' };
+  const refund = branchCloseRefund(state, b);
+  const city = getCity(b.city);
+  return finish(
+    {
+      ...state,
+      cash: state.cash + refund,
+      branches: state.branches.filter((x) => x.id !== branchId),
+      reputation: clamp(state.reputation - 2, 0, 100),
+    },
+    'expansion',
+    `Fechou a filial de ${city?.name ?? b.city} (+${money(refund)}).`,
+    `Filial de ${city?.name ?? b.city} fechada. Voltaram ${money(refund)} para o caixa e os custos mensais caíram.`,
   );
 }
 
 export function expandScope(state: GameState): ActionResult {
   const next = SCOPES[state.scopeLevel + 1];
-  if (!next) return { ok: false, error: 'Você já atua no Brasil todo.' };
+  if (!next) return { ok: false, error: `Você já atua em toda a cidade de ${homeCity(state).name}. Para crescer mais, abra filiais em outras cidades.` };
   if (state.level < next.unlockLevel) return { ok: false, error: `Expandir para ${next.label.toLowerCase()} libera no nível ${next.unlockLevel}.` };
   const err = spend(state, next.cost);
   if (err) return err;
@@ -496,13 +599,13 @@ export function expandScope(state: GameState): ActionResult {
     { ...state, cash: state.cash - next.cost, scopeLevel: next.level },
     'expansion',
     `Expandiu para ${next.label.toLowerCase()} (${money(next.cost)}).`,
-    `Expansão concluída: agora você atua em ${next.label.toLowerCase()}. O mercado ficou maior, e a concorrência também.`,
+    `Expansão concluída: agora você atua em toda a cidade de ${homeCity(state).name}. O mercado ficou maior, e a concorrência também.`,
   );
 }
 
 export function loanLimit(state: GameState): number {
   const diff = getDifficulty(state.player.difficulty);
-  const factor = state.level >= 2 ? 1 : 0.5;
+  const factor = state.level >= 2 ? creditScale(state) : 0.5;
   const outstanding = state.loans.reduce((s, l) => s + l.balance, 0);
   return Math.max(0, Math.round(diff.maxLoan * factor - outstanding));
 }
@@ -534,6 +637,70 @@ export function payOffLoan(state: GameState, index: number): ActionResult {
     'finance',
     `Quitou um empréstimo antecipadamente (${money(loan.balance)}).`,
     'Empréstimo quitado! Sem juros nos próximos meses.',
+  );
+}
+
+// ---------------------------------------------------------------------------
+// Fornecedores, fidelidade, seguro e aplicação financeira
+// ---------------------------------------------------------------------------
+
+export function setSupplier(state: GameState, id: SupplierId): ActionResult {
+  if (state.supplier === id) return { ok: false, error: 'Esse já é o seu fornecedor.' };
+  const err = spend(state, SUPPLIER_SWITCH_COST);
+  if (err) return err;
+  const sup = getSupplier(id);
+  return finish(
+    { ...state, cash: state.cash - SUPPLIER_SWITCH_COST, supplier: id },
+    'product',
+    `Trocou para o fornecedor ${sup.label.toLowerCase()} (${money(SUPPLIER_SWITCH_COST)} de troca de contrato).`,
+    `Novo fornecedor: ${sup.label}. Custo de produção ${sup.costMult < 1 ? 'menor' : sup.costMult > 1 ? 'maior' : 'normal'}${sup.quality ? `, qualidade ${sup.quality > 0 ? '+' : ''}${sup.quality}` : ''}.`,
+  );
+}
+
+export function setLoyalty(state: GameState, level: LoyaltyLevel): ActionResult {
+  const prog = getLoyalty(level);
+  if (state.loyalty === level) return { ok: false, error: 'Esse programa já está ativo.' };
+  if (state.level < prog.unlockLevel) return { ok: false, error: `${prog.label} libera no nível ${prog.unlockLevel}.` };
+  return finish(
+    { ...state, loyalty: level },
+    'marketing',
+    level === 0 ? 'Encerrou o programa de fidelidade.' : `Criou o programa de fidelidade "${prog.label}" (${money(prog.monthlyCost)}/mês).`,
+    level === 0 ? 'Programa de fidelidade encerrado.' : `${prog.label} ativo! Clientes fiéis voltam mais vezes.`,
+  );
+}
+
+export function toggleInsurance(state: GameState): ActionResult {
+  if (!state.insurance && state.level < INSURANCE_UNLOCK) return { ok: false, error: `O seguro empresarial libera no nível ${INSURANCE_UNLOCK}.` };
+  return finish(
+    { ...state, insurance: !state.insurance },
+    'finance',
+    state.insurance ? 'Cancelou o seguro empresarial.' : 'Contratou o seguro empresarial.',
+    state.insurance ? 'Seguro cancelado.' : `Seguro contratado: cobre ${Math.round(INSURANCE_COVERAGE * 100)}% do prejuízo de eventos ruins.`,
+  );
+}
+
+export function depositSavings(state: GameState, amount: number): ActionResult {
+  const value = Math.floor(amount);
+  if (state.level < SAVINGS_UNLOCK) return { ok: false, error: `A aplicação libera no nível ${SAVINGS_UNLOCK}.` };
+  if (value <= 0) return { ok: false, error: 'Escolha um valor para aplicar.' };
+  const err = spend(state, value);
+  if (err) return err;
+  return finish(
+    { ...state, cash: state.cash - value, savings: state.savings + value },
+    'finance',
+    `Aplicou ${money(value)} na aplicação financeira.`,
+    `${money(value)} aplicados. O dinheiro rende todo mês e cobre o caixa se ele ficar negativo.`,
+  );
+}
+
+export function withdrawSavings(state: GameState, amount: number): ActionResult {
+  const value = Math.min(Math.floor(amount), Math.floor(state.savings));
+  if (value <= 0) return { ok: false, error: 'Não há dinheiro aplicado.' };
+  return finish(
+    { ...state, cash: state.cash + value, savings: state.savings - value },
+    'finance',
+    `Resgatou ${money(value)} da aplicação financeira.`,
+    `${money(value)} resgatados para o caixa.`,
   );
 }
 

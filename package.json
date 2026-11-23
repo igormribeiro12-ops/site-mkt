@@ -1,8 +1,8 @@
 {
-  "name": "startup-tycoon",
+  "name": "construa-seu-imperio",
   "private": true,
   "version": "1.0.0",
-  "description": "STARTUP TYCOON — Construa seu Império: simulador de empreendedorismo e marketing digital para sala de aula.",
+  "description": "Construa seu Império: simulador de empreendedorismo e marketing digital para sala de aula.",
   "type": "module",
   "scripts": {
     "dev": "vite",

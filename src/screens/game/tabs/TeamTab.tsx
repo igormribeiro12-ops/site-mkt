@@ -1,26 +1,29 @@
-import { Building2, Globe2, Lock, Minus, Plus, Store, Users, Warehouse } from 'lucide-react';
+import { MapPinned, Minus, Plus, Users, Warehouse } from 'lucide-react';
 import { Button } from '../../../components/ui/Button';
 import { Badge, LockedNote, Panel, PanelHeader, TipCard } from '../../../components/ui/Panel';
-import { INFRA, NEW_UNIT_UNLOCK, ROLES, SCOPES, getSegment } from '../../../game/data';
-import { expandScope, fire, hire, newUnitCost, openUnit, severanceCost, upgradeInfra } from '../../../game/engine';
+import { INFRA, ROLES, SCOPES, getSegment } from '../../../game/data';
+import { fire, hire, severanceCost, upgradeInfra } from '../../../game/engine';
+import { homeCity, presentCities, presentStates, unitCount } from '../../../game/expansion';
+import { STATES } from '../../../game/geo';
 import { money, num } from '../../../game/format';
 import { capacity, capacityFactor, monthlySalaries } from '../../../game/simulation';
 import { cn } from '../../../lib/cn';
 import { useActiveGame } from '../../../state/GameContext';
+import type { TabProps } from '../apps';
 
-export function TeamTab() {
+export function TeamTab({ goTo }: TabProps) {
   const { game, act } = useActiveGame();
+  const home = homeCity(game);
   const seg = getSegment(game.company.segment);
   const infra = INFRA[game.infraLevel];
   const nextInfra = INFRA[game.infraLevel + 1];
-  const nextScope = SCOPES[game.scopeLevel + 1];
   const cap = capacity(game);
   const factor = capacityFactor(seg.refPrice);
 
   return (
     <div className="space-y-5">
       <div>
-        <p className="text-xs font-semibold uppercase tracking-[0.25em] text-violet-300">Equipe e expansão</p>
+        <p className="text-xs font-semibold uppercase tracking-[0.25em] text-violet-300">Equipe e estrutura</p>
         <h1 className="font-display text-2xl font-bold text-white sm:text-3xl">Cresça com estrutura</h1>
         <p className="text-sm text-slate-400">Folha de pagamento: {money(monthlySalaries(game))}/mês · Capacidade: {num(cap)} vendas/mês</p>
       </div>
@@ -82,36 +85,30 @@ export function TeamTab() {
           )}
         </Panel>
 
-        <Panel>
-          <PanelHeader icon={Store} title="Novas unidades" subtitle={`Você tem ${game.units} unidade(s)`} accent="emerald" />
-          <p className="text-sm text-slate-300">Cada nova unidade aumenta a capacidade em 60% e a demanda local em 25%, com aluguel extra de R$ 1.500/mês.</p>
-          {game.level < NEW_UNIT_UNLOCK ? (
-            <p className="mt-4 flex items-center gap-2 text-sm text-slate-400">
-              <Lock className="size-4" aria-hidden /> Libera no nível {NEW_UNIT_UNLOCK}.
-            </p>
-          ) : (
-            <Button size="sm" className="mt-4 w-full" onClick={() => act(openUnit)} icon={<Building2 className="size-4" aria-hidden />}>
-              Abrir unidade por {money(newUnitCost(game))}
-            </Button>
-          )}
-        </Panel>
-
-        <Panel>
-          <PanelHeader icon={Globe2} title="Outros mercados" subtitle={`Atuação: ${SCOPES[game.scopeLevel].label}`} accent="violet" />
-          <p className="text-sm text-slate-300">Expandir multiplica o número de clientes potenciais, mas aumenta a concorrência.</p>
-          {nextScope ? (
-            game.level < nextScope.unlockLevel ? (
-              <p className="mt-4 flex items-center gap-2 text-sm text-slate-400">
-                <Lock className="size-4" aria-hidden /> {nextScope.label}: libera no nível {nextScope.unlockLevel}.
+        <Panel className="lg:col-span-2">
+          <PanelHeader icon={MapPinned} title="Expansão pelo Brasil" subtitle={`Sede em ${home.name} (${home.uf}) · atuação: ${SCOPES[game.scopeLevel].label.toLowerCase()}`} accent="emerald" />
+          <div className="grid gap-3 sm:grid-cols-3">
+            <div className="rounded-xl bg-white/[0.03] p-3 ring-1 ring-white/10">
+              <p className="text-xs text-slate-400">Cidades</p>
+              <p className="font-display text-xl font-bold text-white">{presentCities(game).size}</p>
+            </div>
+            <div className="rounded-xl bg-white/[0.03] p-3 ring-1 ring-white/10">
+              <p className="text-xs text-slate-400">Estados</p>
+              <p className="font-display text-xl font-bold text-white">
+                {presentStates(game).size} <span className="text-sm font-semibold text-slate-500">de {STATES.length}</span>
               </p>
-            ) : (
-              <Button size="sm" className="mt-4 w-full" onClick={() => act(expandScope)} icon={<Globe2 className="size-4" aria-hidden />}>
-                Expandir para {nextScope.label.toLowerCase()} ({money(nextScope.cost)})
-              </Button>
-            )
-          ) : (
-            <p className="mt-4 text-sm text-emerald-300">Você já atua no Brasil todo!</p>
-          )}
+            </div>
+            <div className="rounded-xl bg-white/[0.03] p-3 ring-1 ring-white/10">
+              <p className="text-xs text-slate-400">Unidades no total</p>
+              <p className="font-display text-xl font-bold text-white">{unitCount(game)}</p>
+            </div>
+          </div>
+          <p className="mt-3 text-sm text-slate-300">
+            Cada unidade aumenta a capacidade em 60%. Filiais em outras cidades também trazem o mercado daquela cidade, mas cobram aluguel e equipe local.
+          </p>
+          <Button size="sm" className="mt-4" onClick={() => goTo('expansao')} icon={<MapPinned className="size-4" aria-hidden />}>
+            Abrir o mapa do Brasil
+          </Button>
         </Panel>
       </div>
 

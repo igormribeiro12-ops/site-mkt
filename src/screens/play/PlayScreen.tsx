@@ -14,6 +14,7 @@ import { Hud, setSpeed } from './Hud';
 import { BuildPanel } from './panels/BuildPanel';
 import { ComputerPanel } from './panels/ComputerPanel';
 import { HirePanel } from './panels/HirePanel';
+import { MapPanel } from './panels/MapPanel';
 import { MarketingPanel } from './panels/MarketingPanel';
 import { MissionsPanel } from './panels/MissionsPanel';
 import { ShopPanel } from './panels/ShopPanel';
@@ -101,6 +102,7 @@ export function PlayScreen({ onExit, onFinish }: { onExit: () => void; onFinish:
       {panel === 'marketing' && <MarketingPanel />}
       {panel === 'computer' && <ComputerPanel />}
       {panel === 'missions' && <MissionsPanel />}
+      {panel === 'map' && <MapPanel />}
       <DialogBox />
       <PauseMenu open={panel === 'pause'} onClose={() => patchUi({ panel: null })} onExit={onExit} onHowTo={() => patchUi({ panel: 'howto' })} />
       <HowToPlay open={panel === 'howto'} onClose={() => patchUi({ panel: null })} />

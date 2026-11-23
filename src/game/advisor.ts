@@ -2,7 +2,7 @@
 // (campanhas, contratações, preço, móveis, expansão...) para recomendar o que
 // mais ajuda a empresa a crescer. Roda no navegador, sem serviço externo.
 
-import { CHANNELS, PRODUCT_LAUNCH_UNLOCK, RD_COST, ROLES, getChannel, getRole, getSegment, qualityExpectation } from './data';
+import { BRANCH_RAMP_MONTHS, CHANNELS, PRODUCT_LAUNCH_UNLOCK, RD_COST, ROLES, getChannel, getRole, getSegment } from './data';
 import {
   QUICK_ACTIONS,
   type ActionResult,
@@ -20,15 +20,17 @@ import {
 import { money, num } from './format';
 import { catalogFor, getFurniture } from './furniture';
 import { canPlace, roomSize } from './layout';
+import { branchOpenCost, openableCities } from './expansion';
+import { GOAL_INFO, describeGoal, goalValue } from './goals';
 import { currentMission } from './missions';
-import { capacity, effectiveQuality, isCampaignRunnable, plannedCosts, simulateMonth } from './simulation';
+import { capacity, effectiveQuality, expectedQuality, isCampaignRunnable, marketPrice, plannedCosts, simulateMonth } from './simulation';
 import type { ChannelId, GameState, RoleId } from './types';
 
 /** O que o botão da recomendação faz na interface. */
 export type AdvisorAction =
   | { kind: 'apply'; label: string; run: (s: GameState) => ActionResult }
   | { kind: 'build'; label: string; item: string }
-  | { kind: 'panel'; label: string; panel: 'build' | 'hire' | 'shop' | 'marketing' | 'missions' }
+  | { kind: 'panel'; label: string; panel: 'build' | 'hire' | 'shop' | 'marketing' | 'missions' | 'map' }
   | { kind: 'app'; label: string; app: 'marketing' | 'produto' | 'financas' | 'equipe' | 'vendas' | 'mercado' }
   | { kind: 'quick'; label: string; id: string };
 
@@ -36,7 +38,7 @@ export interface Recommendation {
   id: string;
   /** urgente = risco para a empresa; oportunidade = ganho simulado; dica = boa prática. */
   tone: 'urgente' | 'oportunidade' | 'dica';
-  area: 'Marketing' | 'Equipe' | 'Preço' | 'Produto' | 'Estrutura' | 'Finanças' | 'Missão' | 'Atendimento';
+  area: 'Marketing' | 'Equipe' | 'Preço' | 'Produto' | 'Estrutura' | 'Finanças' | 'Missão' | 'Atendimento' | 'Expansão';
   title: string;
   detail: string;
   /** Diferença de caixa em 3 meses (quando foi simulado). */
@@ -183,7 +185,7 @@ function buildScenarios(s: GameState): Scenario[] {
       title: `${up ? 'Subir' : 'Baixar'} o preço para ${money(price, true)}`,
       why: (gain, cu) =>
         up
-          ? `Seus clientes aceitam pagar um pouco mais (preço médio do mercado: ${money(seg.refPrice)}). A margem maior deixa o caixa ${money(gain)} maior em 3 meses${cu < 0 ? `, mesmo com ${num(-cu)} clientes a menos` : ''}.`
+          ? `Seus clientes aceitam pagar um pouco mais (preço médio do mercado: ${money(marketPrice(s))}). A margem maior deixa o caixa ${money(gain)} maior em 3 meses${cu < 0 ? `, mesmo com ${num(-cu)} clientes a menos` : ''}.`
           : `Um preço mais competitivo atrai ${num(Math.max(0, cu))} clientes a mais e o caixa termina ${money(gain)} maior em 3 meses.`,
       apply: (st) => wrap(setPrice(st, price), `Preço ajustado para ${money(price, true)}.`),
       action: { kind: 'apply', label: 'Aplicar novo preço', run: (st) => wrap(setPrice(st, price), `Preço ajustado para ${money(price, true)}.`) },
@@ -197,7 +199,7 @@ function buildScenarios(s: GameState): Scenario[] {
       id: 'rd',
       area: 'Produto',
       title: `Investir ${money(RD_COST)} na qualidade do produto`,
-      why: (gain) => `Qualidade atual ${num(effectiveQuality(s))}/100 (o mercado espera ${qualityExpectation(seg)}). Melhorar o produto aumenta conversão e satisfação: +${money(gain)} no caixa em 3 meses.`,
+      why: (gain) => `Qualidade atual ${num(effectiveQuality(s))}/100 (o mercado espera ${expectedQuality(s)}). Melhorar o produto aumenta conversão e satisfação: +${money(gain)} no caixa em 3 meses.`,
       apply: investRD,
       action: { kind: 'apply', label: 'Investir em qualidade', run: investRD },
     });
@@ -259,10 +261,18 @@ function buildScenarios(s: GameState): Scenario[] {
   return list;
 }
 
+/** A filial mais barata que já dá para abrir em outra cidade. */
+function cheapestBranch(state: GameState): { name: string; cost: number } | null {
+  const options = openableCities(state)
+    .filter((c) => c.id !== state.homeCity)
+    .map((c) => ({ name: `${c.name} (${c.uf})`, cost: branchOpenCost(state, c.id).total }))
+    .sort((a, b) => a.cost - b.cost);
+  return options[0] ?? null;
+}
+
 /** Analisa a empresa e devolve as recomendações em ordem de prioridade. */
 export function analyze(state: GameState): Analysis {
   const base = project(state);
-  const seg = getSegment(state.company.segment);
   const recs: Recommendation[] = [];
   const costs = plannedCosts(state);
 
@@ -301,17 +311,17 @@ export function analyze(state: GameState): Analysis {
     });
   }
   if (base.satisfaction < 55) {
-    const q = effectiveQuality(state) < qualityExpectation(seg);
-    const expensive = state.price > seg.refPrice * 1.25;
+    const q = effectiveQuality(state) < expectedQuality(state);
+    const expensive = state.price > marketPrice(state) * 1.25;
     recs.push({
       id: 'satisfacao',
       tone: 'urgente',
       area: 'Produto',
       title: 'A satisfação dos clientes está baixa',
       detail: q
-        ? `A qualidade (${num(effectiveQuality(state))}) está abaixo do que o mercado espera (${qualityExpectation(seg)}). Invista em qualidade ou trabalhe no computador para melhorar o produto.`
+        ? `A qualidade (${num(effectiveQuality(state))}) está abaixo do que o mercado espera (${expectedQuality(state)}). Invista em qualidade ou trabalhe no computador para melhorar o produto.`
         : expensive
-          ? `Seu preço (${money(state.price)}) está bem acima da média do mercado (${money(seg.refPrice)}). Clientes que pagam caro esperam mais.`
+          ? `Seu preço (${money(state.price)}) está bem acima da média do mercado (${money(marketPrice(state))}). Clientes que pagam caro esperam mais.`
           : 'Cuide do atendimento: contrate atendentes, trabalhe no balcão e deixe o ambiente mais agradável com decoração.',
       action: q ? { kind: 'app', label: 'Ver produto', app: 'produto' } : { kind: 'panel', label: 'Contratar', panel: 'hire' },
       score: 700,
@@ -395,14 +405,39 @@ export function analyze(state: GameState): Analysis {
       score: 50,
     });
   }
+  if (state.goal) {
+    const value = goalValue(state, state.goal);
+    if (value < state.goal.target) {
+      recs.push({
+        id: 'desafio',
+        tone: 'dica',
+        area: 'Missão',
+        title: `Desafio do mês: ${GOAL_INFO[state.goal.kind].title} (+${money(state.goal.reward)})`,
+        detail: `${describeGoal(state.goal)}. Até agora: ${GOAL_INFO[state.goal.kind].format === 'money' ? money(value) : num(value)}.`,
+        score: 45,
+      });
+    }
+  }
+  const branch = cheapestBranch(state);
+  if (branch && state.cash > branch.cost + costs.total * 1.5) {
+    recs.push({
+      id: 'filial',
+      tone: 'dica',
+      area: 'Expansão',
+      title: `Abra uma filial em ${branch.name}`,
+      detail: `Você já pode crescer para outras cidades. Uma filial em ${branch.name} custa ${money(branch.cost)} e leva ${BRANCH_RAMP_MONTHS} meses para render tudo, então só abra com caixa para aguentar esse começo.`,
+      action: { kind: 'panel', label: 'Abrir o mapa', panel: 'map' },
+      score: 42,
+    });
+  }
   if (costs.total > 0 && state.cash > costs.total * 4 && base.cash > state.cash) {
     recs.push({
       id: 'caixa-parado',
       tone: 'dica',
       area: 'Finanças',
       title: 'Dinheiro parado pode trabalhar por você',
-      detail: `Seu caixa (${money(state.cash)}) cobre mais de 4 meses de custos. Considere investir em marketing, estrutura ou expansão para crescer mais rápido.`,
-      action: { kind: 'panel', label: 'Ver expansões', panel: 'shop' },
+      detail: `Seu caixa (${money(state.cash)}) cobre mais de 4 meses de custos. Invista em marketing, estrutura ou expansão para crescer mais rápido, ou guarde uma parte na aplicação financeira, que rende todo mês e cobre o caixa numa emergência.`,
+      action: { kind: 'app', label: 'Ver finanças', app: 'financas' },
       score: 40,
     });
   }

@@ -1,4 +1,5 @@
 import { LEVELS } from '../../game/data';
+import { presentCities, presentStates } from '../../game/expansion';
 import { employeeCount } from '../../game/simulation';
 import type { GameState } from '../../game/types';
 
@@ -23,9 +24,13 @@ export function nextLevelRequirements(s: GameState): Requirement[] | null {
   if (r.satisfaction !== undefined)
     list.push({ label: 'Satisfação dos clientes', current: s.satisfaction, target: r.satisfaction, done: s.satisfaction >= r.satisfaction, format: 'number' });
   if (r.employees !== undefined) list.push({ label: 'Funcionários', current: employeeCount(s), target: r.employees, done: employeeCount(s) >= r.employees, format: 'number' });
-  if (r.expansions !== undefined) {
-    const exp = s.units - 1 + s.scopeLevel;
-    list.push({ label: 'Expansões (unidades ou mercados)', current: exp, target: r.expansions, done: exp >= r.expansions, format: 'number' });
+  if (r.cities !== undefined) {
+    const n = presentCities(s).size;
+    list.push({ label: 'Cidades com a sua marca', current: n, target: r.cities, done: n >= r.cities, format: 'number' });
+  }
+  if (r.states !== undefined) {
+    const n = presentStates(s).size;
+    list.push({ label: 'Estados com a sua marca', current: n, target: r.states, done: n >= r.states, format: 'number' });
   }
   return list;
 }

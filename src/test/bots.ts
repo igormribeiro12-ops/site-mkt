@@ -1,14 +1,15 @@
 // Jogadores automáticos usados para testar o equilíbrio da simulação.
 
 import {
+  BRANCH_UNLOCK,
   CHANNELS,
   INFRA,
+  MAX_HOME_UNITS,
   MONTH_LIMIT,
   SCOPES,
   getRole,
   getSegment,
   productLaunchCost,
-  qualityExpectation,
 } from '../game/data';
 import {
   DEFAULT_AVATAR,
@@ -20,6 +21,7 @@ import {
   launchProduct,
   loanLimit,
   newUnitCost,
+  openBranch,
   openUnit,
   resolveEvent,
   saveCampaign,
@@ -28,7 +30,9 @@ import {
   type ActionResult,
 } from '../game/engine';
 import { choiceCost, getEvent, isChoiceAvailable } from '../game/events';
-import { capacity } from '../game/simulation';
+import { branchMonthlyCost, branchOpenCost, homeUnits, openableCities, presentStates } from '../game/expansion';
+import { DEFAULT_HOME_CITY, marketFactor } from '../game/geo';
+import { capacity, expectedQuality, marketPrice, plannedCosts } from '../game/simulation';
 import type { DifficultyId, GameState, SegmentId, SetupDraft } from '../game/types';
 
 export type Strategy = (s: GameState) => GameState;
@@ -54,6 +58,7 @@ export function draft(segment: SegmentId, difficulty: DifficultyId = 'normal', o
     structure: 'home',
     productTier: 'bom',
     price: getSegment(segment).refPrice,
+    homeCity: DEFAULT_HOME_CITY,
     ...overrides,
   };
 }
@@ -102,21 +107,22 @@ export const balanced: Strategy = (s) => {
   const monthlyRevenue = last?.revenue ?? 0;
 
   // Mantém o preço na média do mercado (desfaz cortes feitos em eventos).
-  if (s.price < seg.refPrice) s = { ...s, price: seg.refPrice };
+  const mp = Math.round(marketPrice(s) * 100) / 100;
+  if (s.price < mp) s = { ...s, price: mp };
 
   // 0. Sem caixa para investir, pega um empréstimo pequeno (uma vez).
-  if (s.cash < 1500 && s.loans.length === 0 && loanLimit(s) >= 3000 && s.month <= 12) s = apply(s, takeLoan(s, 3000));
+  if (s.cash < 1500 && s.loans.length === 0 && loanLimit(s) >= 3000) s = apply(s, takeLoan(s, 3000));
 
   // 1. Capacidade
   const cap = capacity(s);
   const nextInfra = INFRA[s.infraLevel + 1];
   if (last && last.orders > cap * 0.85) {
     if (nextInfra && s.cash > nextInfra.upgradeCost * 1.4) s = apply(s, upgradeInfra(s));
-    else if (!nextInfra && s.cash > newUnitCost(s) * 1.4) s = apply(s, openUnit(s));
+    else if (!nextInfra && homeUnits(s).length < MAX_HOME_UNITS && s.cash > newUnitCost(s) * 1.4) s = apply(s, openUnit(s));
   }
 
   // 2. Qualidade
-  if (s.quality < qualityExpectation(seg) + 8 && s.cash > 3500) s = apply(s, investRD(s));
+  if (s.quality < expectedQuality(s) + 8 && s.cash > 3500) s = apply(s, investRD(s));
 
   // 3. Equipe
   const lastProfit = last?.profit ?? 0;
@@ -128,14 +134,28 @@ export const balanced: Strategy = (s) => {
   else if (s.leads > 150 && s.employees.vendedor < 2 && salaryOk('vendedor')) s = apply(s, hire(s, 'vendedor'));
   else if (s.employees.desenvolvedor === 0 && salaryOk('desenvolvedor') && monthlyRevenue > 12000) s = apply(s, hire(s, 'desenvolvedor'));
   else if (s.employees.gerente === 0 && salaryOk('gerente') && monthlyRevenue > 18000) s = apply(s, hire(s, 'gerente'));
+  else if (s.employees.financeiro === 0 && salaryOk('financeiro') && monthlyRevenue > 60000) s = apply(s, hire(s, 'financeiro'));
+  else if (s.employees.logistica === 0 && presentStates(s).size >= 2 && salaryOk('logistica')) s = apply(s, hire(s, 'logistica'));
 
   // 4. Produto e expansão
   if (s.cash > productLaunchCost(s.productLines) * 3 && s.productLines < 3) s = apply(s, launchProduct(s));
   const scope = SCOPES[s.scopeLevel + 1];
   if (scope && s.level >= scope.unlockLevel && s.cash > scope.cost * 1.6 && last && last.marketShare > 0.15) s = apply(s, expandScope(s));
 
-  // 5. Marketing: os 2 canais mais eficientes para o segmento, com objetivo de vendas.
-  const budget = Math.max(200, Math.min(s.cash * 0.3, 400 + monthlyRevenue * 0.18));
+  // 5. Filiais: a cidade com o melhor mercado pelo custo, priorizando estados novos.
+  if (last && last.profit > -500 && s.level >= BRANCH_UNLOCK && s.scopeLevel >= 1) {
+    const states = presentStates(s);
+    const best = openableCities(s)
+      .filter((c) => c.id !== s.homeCity)
+      .map((c) => ({ c, cost: branchOpenCost(s, c.id).total, monthly: branchMonthlyCost(s, c.id), score: (marketFactor(c) / branchOpenCost(s, c.id).total) * (states.has(c.uf) ? 1 : 1.6) }))
+      .sort((a, b) => b.score - a.score)[0];
+    if (best && s.cash > best.cost + plannedCosts(s).salaries + best.monthly * 3) s = apply(s, openBranch(s, best.c.id));
+  }
+
+  // 6. Marketing: os 2 canais mais eficientes para o segmento, com objetivo de vendas.
+  // Com lucro, o marketing não cai abaixo de 8% da receita mesmo com pouco caixa.
+  const floor = lastProfit > -1000 ? monthlyRevenue * 0.08 : 0;
+  const budget = Math.max(200, floor, Math.min(s.cash * 0.3, 400 + monthlyRevenue * 0.18));
   const channels = CHANNELS.filter((c) => !c.baseLimited && !c.buildsOrganic && s.level >= c.unlockLevel && c.minBudget <= budget / 2)
     .map((c) => ({ c, score: seg.affinity[c.id] * c.reachPer100 * c.conversion }))
     .sort((a, b) => b.score - a.score)

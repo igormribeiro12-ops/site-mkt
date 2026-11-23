@@ -76,6 +76,8 @@ const ROLE_LINES: Record<RoleId, string[]> = {
   marketing: ['Preparando o próximo post!', 'O engajamento está subindo.', 'Tenho uma ideia de campanha!'],
   desenvolvedor: ['Melhorando o produto…', 'Corrigi um problema hoje.', 'A qualidade está subindo!'],
   gerente: ['Organizando a operação.', 'Os custos estão sob controle.', 'Equipe alinhada!'],
+  financeiro: ['Renegociei os juros com o banco!', 'O caixa está fechando no azul.', 'Planilha em dia!'],
+  logistica: ['As entregas estão no prazo.', 'Achei um frete mais barato!', 'Estoque organizado!'],
 };
 
 const CUSTOMER_HAPPY = ['Adorei!', 'Voltarei com certeza!', 'Ótimo atendimento!', 'Que lugar legal!', 'Valeu a pena!'];
@@ -1139,7 +1141,7 @@ export class OfficeScene extends Phaser.Scene {
       e.state = 'idle';
       e.nextMove = 0;
       e.actor.emote('question', 2400);
-      if (['marketing', 'desenvolvedor', 'gerente'].includes(e.role)) e.actor.say('Preciso de uma estação de trabalho!', 2600);
+      if (['marketing', 'desenvolvedor', 'gerente', 'financeiro', 'logistica'].includes(e.role)) e.actor.say('Preciso de uma estação de trabalho!', 2600);
     }
   }
 

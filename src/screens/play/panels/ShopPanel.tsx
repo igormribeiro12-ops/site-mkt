@@ -1,9 +1,11 @@
 import { useState } from 'react';
-import { Building2, Globe2, Lock, ShoppingBag, Store } from 'lucide-react';
+import { Building2, Globe2, Lock, MapPinned, ShoppingBag, Store } from 'lucide-react';
 import { Button } from '../../../components/ui/Button';
 import { Badge, TipCard } from '../../../components/ui/Panel';
-import { INFRA, NEW_UNIT_RENT, NEW_UNIT_UNLOCK, SCOPES } from '../../../game/data';
+import { BRANCH_UNLOCK, INFRA, MAX_HOME_UNITS, NATIONAL_UNLOCK, NEW_UNIT_RENT, SCOPES } from '../../../game/data';
 import { expandOffice, expandScope, newUnitCost, openUnit } from '../../../game/engine';
+import { checkCity, homeCity, homeUnits, presentCities, presentStates } from '../../../game/expansion';
+import { STATES } from '../../../game/geo';
 import { money } from '../../../game/format';
 import { cn } from '../../../lib/cn';
 import { useActiveGame } from '../../../state/GameContext';
@@ -69,6 +71,9 @@ export function ShopPanel() {
   const nextInfra = INFRA[game.infraLevel + 1];
   const nextScope = SCOPES[game.scopeLevel + 1];
   const unitCost = newUnitCost(game);
+  const home = homeCity(game);
+  const units = homeUnits(game).length;
+  const unitLocked = units < MAX_HOME_UNITS ? checkCity(game, game.homeCity).reason : null;
 
   return (
     <SidePanel title="Comprar" subtitle="Expansões, produtos e preço" icon={ShoppingBag} accent="from-emerald-400 to-teal-500" onClose={close} wide>
@@ -108,25 +113,45 @@ export function ShopPanel() {
             />
             <Card
               icon={Globe2}
-              title="Expandir o mercado"
-              description={nextScope ? `Vender para ${nextScope.label.toLowerCase()}: público ${nextScope.multiplier}× maior. Novas áreas da cidade são liberadas.` : 'Você já atua no Brasil todo.'}
+              title="Conquistar a cidade toda"
+              description={
+                nextScope
+                  ? `Vender para toda a cidade de ${home.name}: público ${String(nextScope.multiplier).replace('.', ',')}× maior. Libera o centro da cidade e as filiais.`
+                  : `Você já atua em toda a cidade de ${home.name}. Para crescer mais, abra filiais pelo Brasil.`
+              }
               badges={nextScope ? [`Atual: ${SCOPES[game.scopeLevel].label}`, `Próximo: ${nextScope.label}`] : []}
               cost={nextScope?.cost ?? 0}
               locked={nextScope && game.level < nextScope.unlockLevel ? `Libera no nível ${nextScope.unlockLevel}` : undefined}
-              done={nextScope ? undefined : 'Mercado máximo'}
+              done={nextScope ? undefined : 'Cidade conquistada'}
               onBuy={() => applyGameAction(expandScope)}
               cash={game.cash}
             />
             <Card
               icon={Store}
-              title="Abrir nova unidade"
-              description="Uma filial aumenta a capacidade de atendimento e aparece na cidade."
-              badges={[`Unidades: ${game.units}`, `Aluguel ${money(NEW_UNIT_RENT)}/mês`]}
+              title="Nova unidade no bairro vizinho"
+              description={`Outra loja em ${home.name}: +60% de capacidade e um pouco mais de clientes. Aparece na cidade.`}
+              badges={[`Unidades extras: ${units} de ${MAX_HOME_UNITS}`, `Aluguel ${money(NEW_UNIT_RENT)}/mês`]}
               cost={unitCost}
-              locked={game.level < NEW_UNIT_UNLOCK ? `Libera no nível ${NEW_UNIT_UNLOCK}` : undefined}
+              locked={unitLocked ?? undefined}
+              done={units >= MAX_HOME_UNITS ? 'Limite de unidades na cidade' : undefined}
               onBuy={() => applyGameAction(openUnit)}
               cash={game.cash}
             />
+          </div>
+          <div className="flex flex-wrap items-center gap-4 rounded-2xl border border-lime-400/25 bg-gradient-to-r from-lime-500/10 to-emerald-500/5 p-4">
+            <span className="flex size-11 items-center justify-center rounded-xl bg-gradient-to-br from-lime-400 to-emerald-600 text-white">
+              <MapPinned className="size-6" aria-hidden />
+            </span>
+            <div className="min-w-0 flex-1">
+              <p className="font-display text-lg font-bold text-white">Filiais pelo Brasil</p>
+              <p className="text-sm text-slate-400">
+                {presentCities(game).size} {presentCities(game).size === 1 ? 'cidade' : 'cidades'} · {presentStates(game).size} de {STATES.length} estados. No seu estado e na sua região a partir do nível{' '}
+                {BRANCH_UNLOCK}; no resto do país, no nível {NATIONAL_UNLOCK}.
+              </p>
+            </div>
+            <Button variant="success" onClick={() => patchUi({ panel: 'map' })} icon={<MapPinned className="size-4" aria-hidden />}>
+              Abrir o mapa (7)
+            </Button>
           </div>
           <TipCard title="Crescer com cuidado">
             Toda expansão aumenta os custos fixos. Expanda quando os clientes já estiverem sobrando (pedidos não atendidos) ou quando o mercado atual estiver
