@@ -33,7 +33,7 @@ export function createStore<T>(initial: T): Store<T> {
 export const gameStore = createStore<GameState | null>(null);
 
 export type Speed = 0 | 1 | 2 | 4;
-export type PanelId = 'build' | 'hire' | 'shop' | 'marketing' | 'computer' | 'missions' | 'decor' | 'pause' | 'howto' | null;
+export type PanelId = 'build' | 'hire' | 'shop' | 'marketing' | 'computer' | 'missions' | 'map' | 'decor' | 'pause' | 'howto' | null;
 
 export interface DialogChoice {
   id: string;

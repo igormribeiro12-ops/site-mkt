@@ -10,6 +10,8 @@ export const ROLE_LOOK: Record<RoleId, Partial<Look>> = {
   marketing: { shirt: '#ec4899', style: 'criativo' },
   desenvolvedor: { shirt: '#334155', style: 'esportivo', glasses: true },
   gerente: { shirt: '#1e3a8a', style: 'social', pants: '#1f2937' },
+  financeiro: { shirt: '#065f46', style: 'social', glasses: true },
+  logistica: { shirt: '#ca8a04', style: 'esportivo', pants: '#374151' },
 };
 
 /** Nome da função no feminino ou no masculino. */
@@ -17,6 +19,8 @@ export function roleTitle(role: RoleId, gender: Gender | undefined): string {
   if (gender === 'feminino') {
     if (role === 'vendedor') return 'Vendedora';
     if (role === 'desenvolvedor') return 'Desenvolvedora de produto';
+    if (role === 'financeiro') return 'Analista financeira';
+    if (role === 'logistica') return 'Coordenadora de logística';
   }
   return getRole(role).label;
 }

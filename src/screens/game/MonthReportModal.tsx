@@ -1,13 +1,19 @@
-import { ArrowRight, BookOpenText, Flag, GraduationCap, Lightbulb, PartyPopper, Skull, ThumbsDown, ThumbsUp, Trophy } from 'lucide-react';
+import { ArrowRight, BookOpenText, Flag, GraduationCap, Lightbulb, PartyPopper, Skull, Target, ThumbsDown, ThumbsUp, Trophy } from 'lucide-react';
 import { Button } from '../../components/ui/Button';
 import { Modal } from '../../components/ui/Modal';
 import { Badge } from '../../components/ui/Panel';
 import { getAchievement } from '../../game/achievements';
 import { CONCEPTS, LEVELS, getChannel, getObjective } from '../../game/data';
 import { money, num, pct } from '../../game/format';
-import type { MonthReport } from '../../game/types';
+import { GOAL_INFO } from '../../game/goals';
+import type { GoalKind, MonthReport } from '../../game/types';
 import { cn } from '../../lib/cn';
 import { useActiveGame } from '../../state/GameContext';
+
+function goalFmt(kind: GoalKind, v: number): string {
+  const f = GOAL_INFO[kind].format;
+  return f === 'money' ? money(v) : f === 'percent' ? `${num(v)}%` : num(v);
+}
 
 function Kpi({ label, value, tone = 'default', sub }: { label: string; value: string; tone?: 'default' | 'good' | 'bad'; sub?: string }) {
   return (
@@ -28,6 +34,7 @@ export function MonthReportModal({ report: r, onClose }: { report: MonthReport; 
     ['Marketing', r.costs.marketing],
     ['Salários', r.costs.salaries],
     ['Aluguel e estrutura', r.costs.rent + r.costs.tools],
+    ['Fidelidade e seguro', r.costs.services ?? 0],
     ['Impostos', r.costs.taxes],
     ['Juros', r.costs.interest],
   ].filter(([, v]) => (v as number) > 0.5) as [string, number][];
@@ -85,6 +92,23 @@ export function MonthReportModal({ report: r, onClose }: { report: MonthReport; 
                 Nível {r.levelUp}: {LEVELS[r.levelUp - 1].title}
               </p>
               <p className="text-sm text-slate-300">Desbloqueado: {LEVELS[r.levelUp - 1].unlocks.join(' · ')}</p>
+            </div>
+          </div>
+        )}
+
+        {r.goal && (
+          <div
+            className={cn('flex items-center gap-3 rounded-2xl p-4 ring-1', r.goal.achieved ? 'bg-emerald-500/10 ring-emerald-400/30' : 'bg-white/[0.03] ring-white/10')}
+            data-testid="report-goal"
+          >
+            <Target className={cn('size-7 shrink-0', r.goal.achieved ? 'text-emerald-300' : 'text-slate-500')} aria-hidden />
+            <div className="min-w-0">
+              <p className="text-xs font-semibold uppercase tracking-wider text-slate-400">Desafio do mês: {GOAL_INFO[r.goal.kind].title}</p>
+              <p className={cn('font-semibold', r.goal.achieved ? 'text-emerald-200' : 'text-slate-300')}>
+                {r.goal.achieved
+                  ? `Cumprido! Você ganhou ${money(r.goal.reward)} e +2 de reputação.`
+                  : `Não deu desta vez: a meta era ${goalFmt(r.goal.kind, r.goal.target)} e você fez ${goalFmt(r.goal.kind, r.goal.value)}.`}
+              </p>
             </div>
           </div>
         )}
@@ -181,6 +205,12 @@ export function MonthReportModal({ report: r, onClose }: { report: MonthReport; 
                   <span className="tabular-nums text-slate-200">{money(value)}</span>
                 </li>
               ))}
+              {(r.savingsIncome ?? 0) > 0.5 && (
+                <li className="flex justify-between text-emerald-300/90">
+                  <span>(+) Rendimento da aplicação</span>
+                  <span className="tabular-nums">{money(r.savingsIncome)}</span>
+                </li>
+              )}
               {r.costs.loan > 0.5 && (
                 <li className="flex justify-between border-t border-white/[0.06] pt-1 text-slate-500">
                   <span>Amortização de empréstimo (sai do caixa, não é despesa)</span>

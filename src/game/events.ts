@@ -14,6 +14,7 @@ import {
   Gavel,
   Handshake,
   HandCoins,
+  Landmark,
   MessageSquareWarning,
   Newspaper,
   PackageX,
@@ -23,11 +24,14 @@ import {
   Store,
   Swords,
   TrendingUp,
+  Truck,
   UserRoundPlus,
   Wallet,
 } from 'lucide-react';
 import { getDifficulty, getSegment } from './data';
+import { presentStates } from './expansion';
 import { clamp, money, num } from './format';
+import { getCity } from './geo';
 import { createId } from './id';
 import { rngFor } from './rng';
 import { competitionLevel, employeeCount, marketSize, modifierTotal, unitCost } from './simulation';
@@ -101,6 +105,8 @@ function loseOneEmployee(s: GameState): { state: GameState; role: string | null 
     marketing: 'o profissional de marketing',
     desenvolvedor: 'um desenvolvedor',
     gerente: 'o gerente',
+    financeiro: 'o analista financeiro',
+    logistica: 'o coordenador de logística',
   };
   return { state: { ...s, employees: { ...s.employees, [role]: s.employees[role] - 1 } }, role: names[role] };
 }
@@ -885,7 +891,126 @@ export const EVENTS: GameEventDef[] = [
       },
     ],
   },
+  {
+    id: 'greve_caminhoneiros',
+    title: 'Greve dos caminhoneiros',
+    icon: Truck,
+    tone: 'bad',
+    concept: 'fluxoCaixa',
+    description: (s) =>
+      `Uma greve parou as estradas do país. Suas filiais em ${presentStates(s).size} estados estão sem receber mercadoria, e o estoque está acabando.`,
+    eligible: (s) => presentStates(s).size >= 2,
+    weight: (s) => 0.5 + 0.25 * presentStates(s).size,
+    choices: [
+      {
+        id: 'aereo',
+        label: 'Pagar frete aéreo',
+        hint: 'Caro, mas as filiais continuam abastecidas.',
+        cost: (s) => greveCost(s),
+        apply: (s) => ({
+          state: pay(s, greveCost(s)),
+          text: `Você pagou ${money(greveCost(s))} em frete aéreo e nenhuma filial ficou sem produto. Ter um plano B na logística custa, mas protege as vendas.`,
+        }),
+      },
+      {
+        id: 'esperar',
+        label: 'Esperar a greve acabar',
+        hint: 'Produção mais cara e menos capacidade por 2 meses (menos com coordenador de logística).',
+        apply: (s) => {
+          const soft = s.employees.logistica > 0;
+          const next = mod(mod(s, 'unitCost', soft ? 0.08 : 0.18, 2, 'Greve dos caminhoneiros'), 'capacity', soft ? -0.08 : -0.2, 2, 'Estoque em falta');
+          return {
+            state: next,
+            text: soft
+              ? 'Seu coordenador de logística achou rotas alternativas: o impacto foi pequeno (+8% no custo e −8% na capacidade por 2 meses).'
+              : 'Sem mercadoria, as filiais venderam menos e o que chegou custou mais caro: +18% no custo e −20% na capacidade por 2 meses.',
+          };
+        },
+      },
+    ],
+  },
+  {
+    id: 'rede_rival',
+    title: 'Rede rival chegou à sua filial',
+    icon: Store,
+    tone: 'bad',
+    concept: 'concorrencia',
+    description: (s) =>
+      `Uma grande rede do seu setor abriu uma loja ao lado da sua filial em ${rivalCity(s)}, com inauguração cheia de promoções.`,
+    eligible: (s) => s.branches.some((b) => b.city !== s.homeCity),
+    weight: (s) => 0.4 + 0.15 * s.branches.filter((b) => b.city !== s.homeCity).length,
+    choices: [
+      {
+        id: 'inauguracao',
+        label: 'Fazer uma contra-campanha local',
+        hint: 'R$ 2.500 em ações na cidade: +6 de reconhecimento e a concorrência sobe pouco.',
+        cost: () => 2500,
+        apply: (s) => ({
+          state: mod(bump(pay(s, 2500), 'awareness', 6), 'competition', 0.03, 2, 'Rede rival'),
+          text: `A campanha em ${rivalCity(s)} lembrou a cidade de que você chegou primeiro. Responder rápido segura os clientes.`,
+        }),
+      },
+      {
+        id: 'qualidade',
+        label: 'Reforçar o atendimento',
+        hint: 'R$ 1.200 em treinamento: +4 de satisfação e +2 de reputação.',
+        cost: () => 1200,
+        apply: (s) => ({
+          state: mod(bump(bump(pay(s, 1200), 'satisfaction', 4), 'reputation', 2), 'competition', 0.06, 3, 'Rede rival'),
+          text: 'Um atendimento melhor fideliza quem já é cliente, mas a rede rival ainda vai disputar os clientes novos por um tempo.',
+        }),
+      },
+      {
+        id: 'nada',
+        label: 'Não fazer nada',
+        hint: 'A demanda cai 10% por 3 meses.',
+        apply: (s) => ({
+          state: mod(mod(s, 'demand', -0.1, 3, 'Clientes indo para a rede rival'), 'competition', 0.08, 3, 'Rede rival'),
+          text: 'Sem reação, a rede rival levou parte dos seus clientes: −10% na demanda por 3 meses.',
+        }),
+      },
+    ],
+  },
+  {
+    id: 'incentivo_fiscal',
+    title: 'Incentivo fiscal estadual',
+    icon: Landmark,
+    tone: 'good',
+    concept: 'lucro',
+    description: () =>
+      'Um governo estadual está oferecendo redução de impostos para empresas que geram empregos. Para participar, é preciso montar um processo com um contador.',
+    eligible: (s) => presentStates(s).size >= 2,
+    weight: () => 0.5,
+    choices: [
+      {
+        id: 'aderir',
+        label: 'Aderir ao programa',
+        hint: 'R$ 1.000 com o contador: custos fixos 10% menores por 6 meses.',
+        cost: () => 1000,
+        apply: (s) => ({
+          state: mod(pay(s, 1000), 'fixedCost', -0.1, 6, 'Incentivo fiscal'),
+          text: 'Programa aprovado! Seus custos fixos caem 10% pelos próximos 6 meses. Conhecer os incentivos do governo é parte da gestão financeira.',
+        }),
+      },
+      {
+        id: 'recusar',
+        label: 'Deixar para depois',
+        hint: 'Nada muda.',
+        apply: (s) => ({ state: s, text: 'A papelada ficou para depois, e a oportunidade passou.' }),
+      },
+    ],
+  },
 ];
+
+function greveCost(s: GameState): number {
+  return 800 + 600 * Math.max(1, presentStates(s).size - 1);
+}
+
+function rivalCity(s: GameState): string {
+  const away = s.branches.filter((b) => b.city !== s.homeCity);
+  const b = away[s.month % Math.max(1, away.length)];
+  return (b && getCity(b.city)?.name) ?? 'outra cidade';
+}
 
 export function getEvent(id: string): GameEventDef | undefined {
   return EVENTS.find((e) => e.id === id);

@@ -8,6 +8,7 @@ import {
   Factory,
   Gauge,
   Home,
+  MapPin,
   Palette,
   Rocket,
   Store,
@@ -31,6 +32,7 @@ import {
   qualityExpectation,
 } from '../../game/data';
 import { setupCosts } from '../../game/engine';
+import { STATES, cityLabel, citiesOf, getCity, getRegion, getState, statesOf } from '../../game/geo';
 import { money, pct } from '../../game/format';
 import { suggestAll, suggestDescriptions, suggestDifferentials, suggestNames, suggestProducts, suggestSlogans } from '../../game/ideas';
 import type { DifficultyId, LogoDesign, SegmentId, SetupDraft } from '../../game/types';
@@ -141,15 +143,20 @@ export function SetupWizard({ onExit, onStart }: { onExit: () => void; onStart: 
         <CharacterCreator avatar={draft.avatar} onChange={(avatar) => setDraft({ avatar })} />
         <fieldset>
           <legend className="mb-2 text-sm font-semibold text-slate-200">Nível de dificuldade</legend>
-          <div className="grid gap-3 sm:grid-cols-3">
+          <div className="grid gap-3 sm:grid-cols-2 xl:grid-cols-4">
             {DIFFICULTIES.map((d) => (
               <ChoiceCard key={d.id} name="difficulty" value={d.id} checked={draft.difficulty === d.id} onChange={(v) => set({ difficulty: v as DifficultyId })} className="flex-col gap-2 p-4">
                 <span className="flex items-center gap-2 font-display text-lg font-bold text-white">
-                  <Gauge className={cn('size-5', d.id === 'facil' ? 'text-emerald-300' : d.id === 'normal' ? 'text-sky-300' : 'text-rose-300')} aria-hidden />
+                  <Gauge
+                    className={cn('size-5', d.id === 'facil' ? 'text-emerald-300' : d.id === 'normal' ? 'text-sky-300' : d.id === 'dificil' ? 'text-rose-300' : 'text-fuchsia-300')}
+                    aria-hidden
+                  />
                   {d.label}
                 </span>
                 <span className="text-xs leading-snug text-slate-400">{d.description}</span>
-                <span className="mt-1 text-[11px] text-slate-500">Limite de dívidas: {money(d.debtLimit)}</span>
+                <span className="mt-1 text-[11px] text-slate-500">
+                  Limite de dívidas: {money(d.debtLimit)} · inflação de {(d.inflation * 100).toFixed(1).replace('.', ',')}% ao mês
+                </span>
               </ChoiceCard>
             ))}
           </div>
@@ -403,8 +410,44 @@ export function SetupWizard({ onExit, onStart }: { onExit: () => void; onStart: 
     const range = priceRange(seg.refPrice);
     const unit = seg.refPrice * seg.unitCostRatio * (0.75 + (0.5 * tier.quality) / 100);
     const pos = positioning(price / seg.refPrice);
+    const homeCityDef = getCity(draft.homeCity);
     content = (
       <div className="space-y-6">
+        <div>
+          <label htmlFor="home-city" className="mb-1 block text-sm font-semibold text-slate-200">
+            Em que cidade fica a sede?
+          </label>
+          <p className="mb-2 text-xs text-slate-500">
+            Você começa no seu bairro. A sede define o seu estado e a sua região: filiais perto de casa liberam no nível 4; no resto do Brasil, no nível 5.
+          </p>
+          <div className="flex flex-wrap items-center gap-3">
+            <span className="flex size-10 items-center justify-center rounded-xl bg-white/[0.06] text-emerald-300">
+              <MapPin className="size-5" aria-hidden />
+            </span>
+            <select
+              id="home-city"
+              value={draft.homeCity}
+              onChange={(e) => set({ homeCity: e.target.value })}
+              className="h-11 min-w-[16rem] flex-1 rounded-xl border border-white/10 bg-ink-900 px-3 text-sm text-white focus:border-violet-400 focus:outline-none focus:ring-4 focus:ring-violet-500/30"
+            >
+              {STATES.map((st) => (
+                <optgroup key={st.uf} label={`${st.name} (${st.uf})`}>
+                  {citiesOf(st.uf).map((c) => (
+                    <option key={c.id} value={c.id}>
+                      {c.name}
+                      {c.capital ? ' (capital)' : ''}
+                    </option>
+                  ))}
+                </optgroup>
+              ))}
+            </select>
+            {homeCityDef && (
+              <Badge tone="info">
+                Região {getRegion(getState(homeCityDef.uf)!.region).label} · {statesOf(getState(homeCityDef.uf)!.region).length} estados
+              </Badge>
+            )}
+          </div>
+        </div>
         <fieldset>
           <legend className="mb-2 text-sm font-semibold text-slate-200">Onde a empresa vai funcionar?</legend>
           <div className="grid gap-3 sm:grid-cols-2">
@@ -472,6 +515,7 @@ export function SetupWizard({ onExit, onStart }: { onExit: () => void; onStart: 
           <p className="max-w-md text-sm text-slate-400">{draft.description}</p>
           <div className="flex flex-wrap justify-center gap-1.5">
             <Badge tone="violet">{seg.label}</Badge>
+            <Badge tone="info">Sede: {cityLabel(draft.homeCity)}</Badge>
             <Badge>{draft.product}</Badge>
             <Badge tone="good">Diferencial: {draft.differential}</Badge>
           </div>

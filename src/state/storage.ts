@@ -1,5 +1,7 @@
 import { getSegment } from '../game/data';
 import { DEFAULT_AVATAR } from '../game/engine';
+import { DEFAULT_HOME_CITY } from '../game/geo';
+import { migrateGame } from '../game/migrate';
 import type { GameState, SetupDraft } from '../game/types';
 
 export const SAVE_KEY = 'startup-tycoon:save:v2';
@@ -23,6 +25,7 @@ export function emptyDraft(): SetupDraft {
     structure: 'home',
     productTier: 'bom',
     price: null,
+    homeCity: DEFAULT_HOME_CITY,
   };
 }
 
@@ -49,7 +52,7 @@ export function loadGame(): GameState | null {
   const data = read<GameState>(SAVE_KEY);
   if (!data || data.version !== 1 || !data.company || !data.player || !data.world || !data.avatar) return null;
   if (!getSegment(data.company.segment)) return null;
-  return { ...data, avatar: { ...DEFAULT_AVATAR, ...data.avatar } };
+  return migrateGame({ ...data, avatar: { ...DEFAULT_AVATAR, ...data.avatar } });
 }
 
 export function saveGame(state: GameState): boolean {

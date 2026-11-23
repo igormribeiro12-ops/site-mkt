@@ -1,4 +1,4 @@
-// Tipos centrais do STARTUP TYCOON.
+// Tipos centrais do CONSTRUA SEU IMPÉRIO.
 
 export type SegmentId =
   | 'tecnologia'
@@ -15,13 +15,42 @@ export type SegmentId =
   | 'academia'
   | 'lanchonete';
 
-export type DifficultyId = 'facil' | 'normal' | 'dificil';
+export type DifficultyId = 'facil' | 'normal' | 'dificil' | 'lendario';
 
 export type ChannelId = 'instagram' | 'tiktok' | 'google' | 'facebook' | 'whatsapp' | 'influencer' | 'seo';
 
 export type ObjectiveId = 'awareness' | 'followers' | 'leads' | 'sales';
 
-export type RoleId = 'atendente' | 'vendedor' | 'marketing' | 'desenvolvedor' | 'gerente';
+export type RoleId = 'atendente' | 'vendedor' | 'marketing' | 'desenvolvedor' | 'gerente' | 'financeiro' | 'logistica';
+
+/** Fornecedor: troca custo de produção por qualidade. */
+export type SupplierId = 'economico' | 'padrao' | 'premium';
+
+/** Programa de fidelidade: 0 = nenhum, 1 = cartão fidelidade, 2 = clube VIP. */
+export type LoyaltyLevel = 0 | 1 | 2;
+
+/** Filial aberta em uma cidade (a sede não entra na lista). */
+export interface Branch {
+  id: string;
+  city: string;
+  /** Mês em que abriu: a filial leva alguns meses para atingir todo o potencial. */
+  month: number;
+}
+
+export type GoalKind = 'clientes' | 'receita' | 'lucro' | 'satisfacao' | 'seguidores';
+
+/** Desafio do mês: uma meta com recompensa. */
+export interface MonthlyGoal {
+  month: number;
+  kind: GoalKind;
+  target: number;
+  reward: number;
+}
+
+export interface GoalResult extends MonthlyGoal {
+  achieved: boolean;
+  value: number;
+}
 
 export type LogoShape = 'circle' | 'rounded' | 'square' | 'hexagon' | 'diamond';
 export type LogoFont = 'grotesk' | 'jakarta' | 'fredoka' | 'serif';
@@ -112,6 +141,8 @@ export interface CostBreakdown {
   taxes: number;
   interest: number;
   loan: number;
+  /** Programa de fidelidade e seguro. */
+  services: number;
 }
 
 export type ConceptId =
@@ -167,11 +198,15 @@ export interface MonthReport {
   cashEnd: number;
   debt: number;
   marketShare: number;
+  /** Rendimento da aplicação financeira no mês (entra no resultado). */
+  savingsIncome: number;
   campaigns: CampaignResult[];
   insights: Insight[];
   concept: ConceptId;
   achievements: string[];
   levelUp: number | null;
+  /** Resultado do desafio do mês. */
+  goal: GoalResult | null;
 }
 
 export interface DecisionLog {
@@ -295,8 +330,18 @@ export interface GameState {
   rdInvestments: number;
   productLines: number;
   infraLevel: number;
-  units: number;
+  /** 0 = bairro, 1 = cidade toda. */
   scopeLevel: number;
+  /** Cidade da sede (id de geo.ts). */
+  homeCity: string;
+  branches: Branch[];
+  supplier: SupplierId;
+  loyalty: LoyaltyLevel;
+  insurance: boolean;
+  /** Dinheiro na aplicação financeira (rende todo mês e cobre o caixa negativo). */
+  savings: number;
+  goal: MonthlyGoal | null;
+  goalsDone: number;
   employees: Record<RoleId, number>;
   salaryBonus: number;
   satisfaction: number;
@@ -343,4 +388,5 @@ export interface SetupDraft {
   structure: StartStructureId;
   productTier: ProductTierId;
   price: number | null;
+  homeCity: string;
 }

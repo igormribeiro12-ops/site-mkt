@@ -48,7 +48,7 @@ const desk = (type: string, name: string, segments: SegmentId[] | 'all', price: 
   w: 2,
   h: 1,
   staff: { dx: 0, dy: 1, face: 'up' },
-  roles: ['marketing', 'desenvolvedor', 'gerente', 'vendedor'],
+  roles: ['marketing', 'desenvolvedor', 'gerente', 'vendedor', 'financeiro', 'logistica'],
   effects: { capacity },
   description,
 });
@@ -149,7 +149,7 @@ export const FURNITURE: FurnitureDef[] = [
     w: 2,
     h: 1,
     staff: { dx: 0, dy: 1, face: 'up' },
-    roles: ['desenvolvedor', 'gerente'],
+    roles: ['desenvolvedor', 'gerente', 'financeiro'],
     effects: { quality: 2 },
     description: 'Ideias organizadas viram produtos melhores.',
   },

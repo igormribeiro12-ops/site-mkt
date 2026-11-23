@@ -1,13 +1,16 @@
-import { Gauge, HeartHandshake, Package, Percent, Receipt, ShoppingBag, Smile, Users } from 'lucide-react';
+import { Check, Gauge, Gift, HeartHandshake, Lock, Package, Percent, Receipt, ShoppingBag, Smile, Users } from 'lucide-react';
 import { CustomersChart, SatisfactionChart } from '../../../components/charts/Charts';
-import { Meter, Panel, PanelHeader, Stat, TipCard } from '../../../components/ui/Panel';
-import { getSegment } from '../../../game/data';
+import { Button } from '../../../components/ui/Button';
+import { Badge, Meter, Panel, PanelHeader, Stat, TipCard } from '../../../components/ui/Panel';
+import { LOYALTY_PROGRAMS, getSegment } from '../../../game/data';
+import { setLoyalty } from '../../../game/engine';
+import { cn } from '../../../lib/cn';
 import { money, num, pct } from '../../../game/format';
 import { capacity, capacityFactor, offer } from '../../../game/simulation';
 import { useActiveGame } from '../../../state/GameContext';
 
 export function SalesTab() {
-  const { game } = useActiveGame();
+  const { game, act } = useActiveGame();
   const last = game.history[game.history.length - 1];
   const seg = getSegment(game.company.segment);
   const cap = capacity(game);
@@ -73,6 +76,54 @@ export function SalesTab() {
           </ul>
         </Panel>
       </div>
+
+      <Panel>
+        <PanelHeader
+          icon={Gift}
+          title="Programa de fidelidade"
+          subtitle="Recompensar quem volta aumenta a recompra e a satisfação, em troca de um desconto e de uma mensalidade."
+          accent="rose"
+        />
+        <div className="grid gap-3 md:grid-cols-3">
+          {LOYALTY_PROGRAMS.map((p) => {
+            const current = game.loyalty === p.level;
+            const locked = game.level < p.unlockLevel;
+            return (
+              <div key={p.level} className={cn('flex flex-col rounded-2xl border p-4', current ? 'border-rose-300/50 bg-rose-500/[0.08]' : 'border-white/10 bg-white/[0.03]', locked && 'opacity-60')}>
+                <p className="flex items-center justify-between font-display font-bold text-white">
+                  {p.label}
+                  {current && <Badge tone="bad">Ativo</Badge>}
+                </p>
+                <p className="mt-1 flex-1 text-sm text-slate-400">{p.description}</p>
+                {p.level > 0 && (
+                  <ul className="mt-2 space-y-0.5 text-xs text-slate-300">
+                    <li>+{Math.round(p.repeatBoost * 100)}% de recompra · +{Math.round(p.retention * 100)} p.p. de clientes que ficam</li>
+                    <li>
+                      +{p.satisfaction} de satisfação · {Math.round(p.discount * 100)}% de desconto · {money(p.monthlyCost)}/mês
+                    </li>
+                  </ul>
+                )}
+                {locked ? (
+                  <p className="mt-3 flex items-center gap-1.5 text-sm font-semibold text-slate-400">
+                    <Lock className="size-4" aria-hidden /> Libera no nível {p.unlockLevel}
+                  </p>
+                ) : (
+                  <Button
+                    size="sm"
+                    className="mt-3"
+                    variant={current ? 'secondary' : 'outline'}
+                    disabled={current}
+                    onClick={() => act((s) => setLoyalty(s, p.level))}
+                    icon={current ? <Check className="size-4" aria-hidden /> : undefined}
+                  >
+                    {current ? 'Em uso' : p.level === 0 ? 'Encerrar programa' : 'Ativar'}
+                  </Button>
+                )}
+              </div>
+            );
+          })}
+        </div>
+      </Panel>
 
       <TipCard title="Cliente satisfeito compra de novo">
         Conquistar um cliente novo custa caro (CAC). Manter os clientes atuais satisfeitos gera recompra quase de graça. Por isso,

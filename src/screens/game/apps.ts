@@ -1,8 +1,8 @@
 import type { LucideIcon } from 'lucide-react';
-import { BrainCircuit, Factory, Globe2, LayoutDashboard, Megaphone, ShoppingCart, Trophy, Users, Wallet } from 'lucide-react';
+import { BrainCircuit, Factory, Globe2, LayoutDashboard, MapPinned, Megaphone, ShoppingCart, Trophy, Users, Wallet } from 'lucide-react';
 
 /** Aplicativos do computador da empresa (sistema de gestão). */
-export type TabId = 'painel' | 'consultor' | 'mercado' | 'marketing' | 'vendas' | 'produto' | 'equipe' | 'financas' | 'conquistas';
+export type TabId = 'painel' | 'consultor' | 'mercado' | 'marketing' | 'vendas' | 'produto' | 'equipe' | 'expansao' | 'financas' | 'conquistas';
 
 export const TABS: { id: TabId; label: string; icon: LucideIcon }[] = [
   { id: 'painel', label: 'Painel', icon: LayoutDashboard },
@@ -11,7 +11,8 @@ export const TABS: { id: TabId; label: string; icon: LucideIcon }[] = [
   { id: 'marketing', label: 'Campanhas', icon: Megaphone },
   { id: 'vendas', label: 'Vendas', icon: ShoppingCart },
   { id: 'produto', label: 'Produto e preço', icon: Factory },
-  { id: 'equipe', label: 'Equipe e expansão', icon: Users },
+  { id: 'equipe', label: 'Equipe', icon: Users },
+  { id: 'expansao', label: 'Mapa do Brasil', icon: MapPinned },
   { id: 'financas', label: 'Finanças', icon: Wallet },
   { id: 'conquistas', label: 'Conquistas', icon: Trophy },
 ];

@@ -8,6 +8,7 @@ import { TABS, type TabId } from '../../game/apps';
 import { AchievementsTab } from '../../game/tabs/AchievementsTab';
 import { AdvisorTab } from '../../game/tabs/AdvisorTab';
 import { DashboardTab } from '../../game/tabs/DashboardTab';
+import { ExpansionTab } from '../../game/tabs/ExpansionTab';
 import { FinanceTab } from '../../game/tabs/FinanceTab';
 import { MarketTab } from '../../game/tabs/MarketTab';
 import { MarketingTab } from '../../game/tabs/MarketingTab';
@@ -44,6 +45,7 @@ export function ComputerPanel() {
     vendas: SalesTab,
     produto: ProductTab,
     equipe: TeamTab,
+    expansao: ExpansionTab,
     financas: FinanceTab,
     conquistas: AchievementsTab,
   }[TABS.some((t) => t.id === app) ? app : 'painel'];

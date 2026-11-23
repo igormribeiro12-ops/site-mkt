@@ -4,6 +4,7 @@
 
 import Phaser from 'phaser';
 import { SCOPES } from '../../game/data';
+import { homeUnits, presentStates } from '../../game/expansion';
 import { getEvent } from '../../game/events';
 import { money } from '../../game/format';
 import { findPath } from '../../game/layout';
@@ -323,7 +324,7 @@ export class CityScene extends Phaser.Scene {
   }
 
   private citySig(s: GameState) {
-    return [s.infraLevel, s.scopeLevel, s.units, s.world.competitorOpen, s.company.name, s.level >= 2].join('|');
+    return [s.infraLevel, s.scopeLevel, s.branches.map((b) => b.city).join(','), s.world.competitorOpen, s.company.name, s.level >= 2].join('|');
   }
 
   private specFor(lot: Lot): BuildingSpec | null {
@@ -355,11 +356,11 @@ export class CityScene extends Phaser.Scene {
       case 'filial2':
       case 'filial3': {
         const n = Number(lot.id.slice(-1));
-        if (s.units < n + 1) return null;
+        if (homeUnits(s).length < n) return null;
         return { w: lot.w, floors: 1, wall: s.world.wallColor, roof: '#475569', awning: c.secondary, sign: `${s.company.name} ${n + 1}`, signColor: c.primary, icon: 'store', doorCol: 1 };
       }
       case 'torre':
-        if (s.scopeLevel < 3) return null;
+        if (presentStates(s).size < 3) return null;
         return { w: lot.w, floors: 6, wall: '#e0e7ff', roof: '#312e81', sign: s.company.name, signColor: c.primary, icon: 'star', doorCol: 1 };
       default:
         return null;
@@ -373,7 +374,7 @@ export class CityScene extends Phaser.Scene {
     const x0 = lot.x * T;
     const y0 = base * T;
     if (lot.id === 'outdoor') {
-      if (s.scopeLevel < 2) return;
+      if (!s.branches.some((b) => b.city !== s.homeCity)) return;
       const key = `billboard-${s.company.name}-${s.company.logo.primary}`;
       if (!this.textures.exists(key)) this.textures.addCanvas(key, billboardArt(s.company.name, s.company.logo.primary, s.company.logo.secondary));
       this.add2(this.add.image(x0, y0 - 4, key).setOrigin(0, 1).setDepth(y0 - 4));
@@ -430,7 +431,10 @@ export class CityScene extends Phaser.Scene {
       case 'moveis':
         return [{ label: 'Ver o catálogo de móveis', run: () => patchUi({ panel: 'build' }) }];
       case 'imobiliaria':
-        return [{ label: 'Ampliar ou expandir a empresa', run: () => patchUi({ panel: 'shop' }) }];
+        return [
+          { label: 'Ampliar ou expandir a empresa', run: () => patchUi({ panel: 'shop' }) },
+          { label: 'Abrir filiais pelo Brasil (mapa)', run: () => patchUi({ panel: 'map' }) },
+        ];
       case 'rival':
         return [
           {

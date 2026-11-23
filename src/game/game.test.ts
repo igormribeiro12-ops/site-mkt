@@ -8,24 +8,38 @@ import { catalogFor } from './furniture';
 import { suggestAll, suggestDifferentials, suggestNames, suggestProducts } from './ideas';
 import { canPlace } from './layout';
 import { rngFor } from './rng';
-import { MONTH_LIMIT, SEGMENTS, STARTING_CAPITAL } from './data';
+import { BRANCH_RAMP_MONTHS, LEVELS, MONTH_LIMIT, REGION_FEE, SEGMENTS, STARTING_CAPITAL, STATE_FEE, VICTORY_STATES, getRole, getSegment } from './data';
 import {
   advanceMonth,
   buyFurniture,
+  closeBranch,
   computeLevel,
   createGame,
   defeatReason,
+  depositSavings,
+  emptyTeam,
   hire,
   investRD,
+  isVictory,
+  openBranch,
   resolveEvent,
   saveCampaign,
+  setLoyalty,
+  setSupplier,
   setupCosts,
   takeLoan,
+  toggleInsurance,
   upgradeInfra,
+  withdrawSavings,
 } from './engine';
+import { branchOpenCost, branchRamp, checkCity, marketReach, presentCities, presentStates } from './expansion';
+import { CITIES, STATES, getCity } from './geo';
+import { createGoal, settleGoal } from './goals';
+import { migrateGame } from './migrate';
+import { ACHIEVEMENT_CATEGORIES } from './achievements';
 import { EVENTS, isChoiceAvailable, rollEvent } from './events';
 import { computeScore } from './scoring';
-import { estimateCampaign, plannedCosts, simulateMonth } from './simulation';
+import { costIndex, effectiveQuality, estimateCampaign, marketPrice, plannedCosts, simulateMonth, unitCost } from './simulation';
 import type { GameState } from './types';
 
 function newGame(): GameState {
@@ -96,10 +110,10 @@ describe('simulação', () => {
     s = (hire(s, 'atendente') as { state: GameState }).state;
     s = (saveCampaign(s, { channel: 'facebook', objective: 'leads', budget: 300 }) as { state: GameState }).state;
     const planned = plannedCosts(s);
-    expect(planned.salaries).toBe(1600);
+    expect(planned.salaries).toBe(getRole('atendente').salary);
     expect(planned.marketing).toBe(300);
     const r = simulateMonth(s).report;
-    expect(r.costs.salaries).toBe(1600);
+    expect(r.costs.salaries).toBe(getRole('atendente').salary);
     expect(r.profit).toBeCloseTo(r.revenue - r.totalCosts, 5);
   });
 });
@@ -124,8 +138,9 @@ describe('ações', () => {
   });
 
   it('nível sobe quando os requisitos são atingidos', () => {
-    const s = { ...newGame(), totalRevenue: 6000, customersTotal: 60 };
-    expect(computeLevel(s)).toBe(2);
+    const req = LEVELS[1].requirements;
+    expect(computeLevel({ ...newGame(), totalRevenue: req.revenue - 1, customersTotal: req.customers })).toBe(1);
+    expect(computeLevel({ ...newGame(), totalRevenue: req.revenue, customersTotal: req.customers })).toBe(2);
   });
 
   it('falência quando o caixa passa do limite', () => {
@@ -145,7 +160,12 @@ describe('eventos', () => {
       level: 3,
       reputation: 70,
       totalRevenue: 30000,
-      employees: { atendente: 1, vendedor: 1, marketing: 0, desenvolvedor: 1, gerente: 0 },
+      employees: { ...emptyTeam(), atendente: 1, vendedor: 1, desenvolvedor: 1 },
+      homeCity: 'sao-paulo',
+      branches: [
+        { id: 'f1', city: 'campinas', month: 3 },
+        { id: 'f2', city: 'rio-de-janeiro', month: 5 },
+      ],
     };
     for (const ev of EVENTS) {
       expect(ev.choices.length).toBeGreaterThanOrEqual(2);
@@ -188,10 +208,18 @@ describe('equilíbrio do jogo', () => {
     expect(bad.month).toBeLessThanOrEqual(6);
   });
 
-  it('em média, uma boa estratégia vence em até 20 meses', () => {
+  it('construir o império leva tempo: em média, uma boa estratégia vence entre 16 e 30 meses', () => {
     expect(winMonths).toHaveLength(SEGMENTS.length);
     const avg = winMonths.reduce((a, b) => a + b, 0) / winMonths.length;
-    expect(avg).toBeLessThanOrEqual(20);
+    expect(avg).toBeGreaterThanOrEqual(16);
+    expect(avg).toBeLessThanOrEqual(30);
+  });
+
+  it('a vitória exige presença em vários estados', () => {
+    const r = play('beleza', balanced);
+    expect(r.phase).toBe('won');
+    expect(presentStates(r.state).size).toBeGreaterThanOrEqual(VICTORY_STATES);
+    expect(r.state.level).toBe(LEVELS.length);
   });
 
   it('a partida termina no prazo máximo', () => {
@@ -295,5 +323,196 @@ describe('consultor da empresa', () => {
     }
     const a = analyze(g);
     for (const r of a.recommendations.filter((x) => x.tone === 'oportunidade')) expect(r.gain ?? 0).toBeGreaterThan(0);
+  });
+});
+
+describe('expansão pelo Brasil', () => {
+  /** Empresa no nível pedido, já atuando na cidade toda e com caixa de sobra. */
+  function grown(level: number, extra: Partial<GameState> = {}): GameState {
+    return { ...newGame(), level, scopeLevel: 1, cash: 200_000, month: 10, ...extra };
+  }
+
+  it('o mapa tem os 27 estados, as 5 regiões e cidades em todos os estados', () => {
+    expect(STATES).toHaveLength(27);
+    expect(new Set(STATES.map((s) => s.region)).size).toBe(5);
+    for (const st of STATES) expect(CITIES.some((c) => c.uf === st.uf)).toBe(true);
+    // não há dois estados no mesmo quadrado do mapa
+    expect(new Set(STATES.map((s) => `${s.col},${s.row}`)).size).toBe(27);
+  });
+
+  it('filiais liberam por nível: estado e região no nível 4, resto do Brasil no 5', () => {
+    expect(openBranch(grown(3), 'campinas').ok).toBe(false);
+    expect(checkCity(grown(4), 'campinas').reason).toBeNull();
+    expect(checkCity(grown(4), 'rio-de-janeiro').reason).toBeNull(); // Sudeste, mesma região
+    expect(checkCity(grown(4), 'recife').reason).toMatch(/nível 5/);
+    expect(checkCity(grown(5), 'recife').reason).toBeNull();
+    // antes, é preciso conquistar a cidade toda
+    expect(checkCity(grown(4, { scopeLevel: 0 }), 'campinas').reason).toMatch(/cidade/i);
+  });
+
+  it('estado novo cobra inscrição estadual e região nova cobra centro de distribuição', () => {
+    const s = grown(5);
+    expect(branchOpenCost(s, 'campinas').stateFee).toBe(0);
+    expect(branchOpenCost(s, 'rio-de-janeiro').stateFee).toBe(STATE_FEE);
+    expect(branchOpenCost(s, 'rio-de-janeiro').regionFee).toBe(0);
+    const recife = branchOpenCost(s, 'recife');
+    expect(recife.stateFee).toBe(STATE_FEE);
+    expect(recife.regionFee).toBe(REGION_FEE);
+    const r = openBranch(s, 'recife');
+    expect(r.ok).toBe(true);
+    if (!r.ok) return;
+    expect(r.state.cash).toBe(s.cash - recife.total);
+    expect(presentStates(r.state).has('PE')).toBe(true);
+    // a segunda filial no mesmo estado não paga a taxa de novo
+    expect(branchOpenCost(r.state, 'caruaru').stateFee).toBe(0);
+    expect(openBranch(r.state, 'recife').ok).toBe(false);
+  });
+
+  it('a filial cresce aos poucos e aumenta o mercado, os custos e a capacidade', () => {
+    const s = grown(5);
+    const r = openBranch(s, 'belo-horizonte');
+    if (!r.ok) throw new Error(r.error);
+    const b = r.state.branches[0];
+    expect(branchRamp(r.state, b)).toBeCloseTo(1 / BRANCH_RAMP_MONTHS);
+    const later = { ...r.state, month: r.state.month + BRANCH_RAMP_MONTHS };
+    expect(branchRamp(later, b)).toBe(1);
+    expect(marketReach(later)).toBeGreaterThan(marketReach(r.state));
+    expect(marketReach(r.state)).toBeGreaterThan(marketReach(s));
+    expect(plannedCosts(r.state).rent).toBeGreaterThan(plannedCosts(s).rent);
+  });
+
+  it('fechar a filial devolve parte do investimento e corta o custo mensal', () => {
+    const opened = openBranch(grown(5), 'curitiba');
+    if (!opened.ok) throw new Error(opened.error);
+    const r = closeBranch(opened.state, opened.state.branches[0].id);
+    expect(r.ok).toBe(true);
+    if (!r.ok) return;
+    expect(r.state.branches).toHaveLength(0);
+    expect(r.state.cash).toBeGreaterThan(opened.state.cash);
+    expect(plannedCosts(r.state).rent).toBeLessThan(plannedCosts(opened.state).rent);
+  });
+
+  it('vencer exige nível 6 e 3 estados ao mesmo tempo', () => {
+    const top = LEVELS[LEVELS.length - 1].requirements;
+    const base = grown(6, { totalRevenue: top.revenue, customersTotal: top.customers, reputation: 90, profitStreak: 6 });
+    expect(isVictory(base)).toBe(false);
+    const branches = [
+      { id: 'a', city: 'rio-de-janeiro', month: 1 },
+      { id: 'b', city: 'belo-horizonte', month: 1 },
+    ];
+    expect(isVictory({ ...base, branches })).toBe(true);
+    expect(presentCities({ ...base, branches }).size).toBe(3);
+  });
+});
+
+describe('desafio do mês', () => {
+  it('é criado a partir do 2º mês e paga a recompensa quando é cumprido', () => {
+    let s = advanceMonth(newGame()).state;
+    if (s.pendingEvent) s = { ...s, pendingEvent: null };
+    const goal = createGoal(s);
+    expect(goal).not.toBeNull();
+    if (!goal) return;
+    expect(goal.month).toBe(s.month);
+    expect(goal.reward).toBeGreaterThanOrEqual(500);
+    const last = s.history[s.history.length - 1];
+    const report = { ...last, month: s.month, newCustomers: 1e6, revenue: 1e9, profit: 1e9, satisfaction: 100, followersGained: 1e6, goal: null };
+    const done = settleGoal({ ...s, goal }, report);
+    expect(done.result?.achieved).toBe(true);
+    expect(done.state.cash).toBe(s.cash + goal.reward);
+    expect(done.state.goalsDone).toBe(s.goalsDone + 1);
+    const failed = settleGoal({ ...s, goal }, { ...report, newCustomers: 0, revenue: 0, profit: -1, satisfaction: 0, followersGained: 0 });
+    expect(failed.result?.achieved).toBe(false);
+    expect(failed.state.cash).toBe(s.cash);
+  });
+
+  it('o fechamento do mês confere o desafio e já cria o próximo', () => {
+    let s = newGame();
+    s = advanceMonth(s).state;
+    expect(s.goal?.month).toBe(s.month);
+    s = { ...s, pendingEvent: null };
+    const r = advanceMonth(s);
+    expect(r.report.goal?.month).toBe(s.month);
+    expect(r.state.goal?.month).toBe(r.state.month);
+  });
+});
+
+describe('finanças, fornecedores e fidelidade', () => {
+  it('a aplicação rende todo mês e cobre o caixa negativo sozinha', () => {
+    const s = { ...newGame(), cash: 20_000 };
+    const dep = depositSavings(s, 10_000);
+    if (!dep.ok) throw new Error(dep.error);
+    expect(dep.state.savings).toBe(10_000);
+    const month = simulateMonth(dep.state).report;
+    expect(month.savingsIncome).toBeGreaterThan(0);
+    // caixa negativo usa a aplicação antes do cheque especial
+    const broke = simulateMonth({ ...dep.state, cash: -2000 }).state;
+    expect(broke.savings).toBeLessThan(10_000);
+    expect(broke.cash).toBeGreaterThanOrEqual(-1);
+    const back = withdrawSavings(dep.state, 4000);
+    expect(back.ok && back.state.cash).toBe(dep.state.cash + 4000);
+  });
+
+  it('o seguro só libera no nível 2 e devolve parte do prejuízo de eventos ruins', () => {
+    expect(toggleInsurance(newGame()).ok).toBe(false);
+    const ins = toggleInsurance({ ...newGame(), level: 2 });
+    if (!ins.ok) throw new Error(ins.error);
+    expect(plannedCosts(ins.state).services).toBeGreaterThan(0);
+    const s = { ...ins.state, cash: 10_000, month: 5, pendingEvent: { eventId: 'fiscalizacao', month: 5 } };
+    const without = resolveEvent({ ...s, insurance: false }, 'arriscar');
+    const covered = resolveEvent(s, 'arriscar');
+    if (!without.ok || !covered.ok) throw new Error('evento');
+    expect(covered.state.cash).toBeGreaterThan(without.state.cash);
+    expect(covered.message).toMatch(/seguro/i);
+  });
+
+  it('fornecedor premium melhora a qualidade e encarece a produção', () => {
+    const s = { ...newGame(), cash: 5000 };
+    const r = setSupplier(s, 'premium');
+    if (!r.ok) throw new Error(r.error);
+    expect(effectiveQuality(r.state)).toBeGreaterThan(effectiveQuality(s));
+    expect(unitCost(r.state)).toBeGreaterThan(unitCost(s));
+    expect(setSupplier(r.state, 'premium').ok).toBe(false);
+  });
+
+  it('o programa de fidelidade aumenta a recompra', () => {
+    const s = { ...newGame(), level: 4, activeCustomers: 400, satisfaction: 75 };
+    expect(setLoyalty(newGame(), 1).ok).toBe(false);
+    const vip = setLoyalty(s, 2);
+    if (!vip.ok) throw new Error(vip.error);
+    expect(simulateMonth(vip.state, { noNoise: true }).report.returningOrders).toBeGreaterThan(simulateMonth(s, { noNoise: true }).report.returningOrders);
+  });
+
+  it('a inflação sobe os custos e também o preço médio do mercado', () => {
+    const s = newGame();
+    const later = { ...s, month: 25 };
+    expect(costIndex(later)).toBeGreaterThan(1.05);
+    expect(unitCost(later)).toBeGreaterThan(unitCost(s));
+    expect(marketPrice(later)).toBeCloseTo(getSegment(s.company.segment).refPrice * costIndex(later));
+  });
+});
+
+describe('saves antigos e conquistas', () => {
+  it('partidas antigas continuam abrindo: unidades viram filiais na cidade da sede', () => {
+    const current = newGame();
+    const { homeCity: _h, branches: _b, supplier: _s, loyalty: _l, insurance: _i, savings: _v, goal: _g, goalsDone: _d, ...old } = current;
+    const legacy = { ...old, units: 3, scopeLevel: 3, employees: { atendente: 2, vendedor: 1, marketing: 0, desenvolvedor: 0, gerente: 0 } } as unknown as GameState;
+    const m = migrateGame(legacy);
+    expect(m.homeCity).toBe('sao-paulo');
+    expect(m.branches).toHaveLength(2);
+    expect(m.branches.every((b) => b.city === 'sao-paulo')).toBe(true);
+    expect(m.scopeLevel).toBe(1);
+    expect(m.employees.financeiro).toBe(0);
+    expect(m.supplier).toBe('padrao');
+    expect('units' in m).toBe(false);
+    // e o jogo segue normalmente
+    expect(() => advanceMonth(m)).not.toThrow();
+    expect(getCity(m.homeCity)).toBeDefined();
+  });
+
+  it('há mais de 50 conquistas, todas com categoria e id único', () => {
+    expect(ACHIEVEMENTS.length).toBeGreaterThanOrEqual(50);
+    expect(new Set(ACHIEVEMENTS.map((a) => a.id)).size).toBe(ACHIEVEMENTS.length);
+    const cats = new Set(ACHIEVEMENT_CATEGORIES.map((c) => c.id));
+    for (const a of ACHIEVEMENTS) expect(cats.has(a.category)).toBe(true);
   });
 });

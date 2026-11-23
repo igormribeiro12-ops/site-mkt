@@ -2,9 +2,10 @@
 
 import { CHANNELS, getChannel, getObjective, getSegment } from './data';
 import { money, num, pct } from './format';
+import { marketPrice } from './simulation';
 import type { ConceptId, GameState, Insight, MonthReport } from './types';
 
-type BaseReport = Omit<MonthReport, 'insights' | 'concept' | 'achievements' | 'levelUp'>;
+type BaseReport = Omit<MonthReport, 'insights' | 'concept' | 'achievements' | 'levelUp' | 'goal'>;
 
 export function buildInsights(prev: GameState, r: BaseReport): { insights: Insight[]; concept: ConceptId } {
   const seg = getSegment(prev.company.segment);
@@ -99,7 +100,7 @@ export function buildInsights(prev: GameState, r: BaseReport): { insights: Insig
   }
 
   // 4. Preço e posicionamento
-  const priceIndex = prev.price / seg.refPrice;
+  const priceIndex = prev.price / marketPrice(prev);
   if (priceIndex > 1.3) {
     items.push({
       tone: 'neutral',

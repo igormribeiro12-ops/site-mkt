@@ -1,9 +1,10 @@
 import { Compass, Globe2, PieChart, Scale, Target, UserRound } from 'lucide-react';
 import { Button } from '../../../components/ui/Button';
 import { Badge, Meter, Panel, PanelHeader, Stat, TipCard } from '../../../components/ui/Panel';
-import { CHANNELS, SCOPES, getSegment, positioning, qualityExpectation } from '../../../game/data';
+import { CHANNELS, SCOPES, getSegment, positioning } from '../../../game/data';
+import { homeCity, marketReach, presentCities, presentStates } from '../../../game/expansion';
 import { money, num, pct } from '../../../game/format';
-import { competitionLevel, marketSize, offer } from '../../../game/simulation';
+import { competitionLevel, effectiveQuality, expectedQuality, marketPrice, marketSize, offer } from '../../../game/simulation';
 import { useActiveGame } from '../../../state/GameContext';
 import type { TabProps } from '../apps';
 
@@ -16,6 +17,10 @@ export function MarketTab({ goTo }: TabProps) {
   const comp = competitionLevel(game);
   const pos = positioning(o.priceIndex);
   const scope = SCOPES[game.scopeLevel];
+  const home = homeCity(game);
+  const expect = expectedQuality(game);
+  const quality = effectiveQuality(game);
+  const cities = presentCities(game).size;
 
   // Perfis de consumidores do mercado (pesos derivados das características do segmento).
   const raw = {
@@ -35,7 +40,7 @@ export function MarketTab({ goTo }: TabProps) {
       <div>
         <p className="text-xs font-semibold uppercase tracking-[0.25em] text-violet-300">Mercado</p>
         <h1 className="font-display text-2xl font-bold text-white sm:text-3xl">
-          {seg.label} · {scope.label}
+          {seg.label} · {cities > 1 ? `${cities} cidades` : `${home.name} (${scope.label.toLowerCase()})`}
         </h1>
         <p className="text-sm text-slate-400">{seg.trendLabel}.</p>
       </div>
@@ -43,8 +48,8 @@ export function MarketTab({ goTo }: TabProps) {
       <div className="grid grid-cols-2 gap-3 md:grid-cols-4">
         <Stat icon={Globe2} label="Clientes potenciais/mês" value={num(size)} hint={`Cresce ${pct(seg.trend, 0)} ao mês`} />
         <Stat icon={PieChart} label="Sua participação" value={pct(share, 1)} hint={`${num(game.activeCustomers)} clientes ativos`} />
-        <Stat icon={Scale} label="Concorrência" value={`${num(comp)}/100`} tone={comp >= 75 ? 'bad' : comp >= 55 ? 'warn' : 'good'} hint={comp > seg.competition ? 'Aumentou com eventos ou expansão' : 'Nível normal do segmento'} />
-        <Stat icon={Target} label="Qualidade esperada" value={`${qualityExpectation(seg)}/100`} hint={`Sua qualidade: ${num(game.quality)}`} tone={game.quality >= qualityExpectation(seg) ? 'good' : 'warn'} />
+        <Stat icon={Scale} label="Concorrência" value={`${num(comp)}/100`} tone={comp >= 75 ? 'bad' : comp >= 55 ? 'warn' : 'good'} hint={comp > seg.competition ? 'Sobe com eventos, expansão e o tamanho da empresa' : 'Nível normal do segmento'} />
+        <Stat icon={Target} label="Qualidade esperada" value={`${expect}/100`} hint={`Sua qualidade: ${num(quality)}`} tone={quality >= expect ? 'good' : 'warn'} />
       </div>
 
       <div className="grid gap-5 lg:grid-cols-2">
@@ -52,8 +57,8 @@ export function MarketTab({ goTo }: TabProps) {
           <PanelHeader icon={Compass} title="Por que os clientes escolhem você?" subtitle="Atratividade da sua oferta frente à concorrência (afeta todas as vendas)." accent="blue" />
           <ul className="space-y-3">
             {[
-              { label: `Preço (${pos.label.toLowerCase()}: ${money(game.price)} vs média ${money(seg.refPrice)})`, value: o.price / 1.5 },
-              { label: `Qualidade (${num(game.quality)} vs esperado ${qualityExpectation(seg)})`, value: o.quality / 1.2 },
+              { label: `Preço (${pos.label.toLowerCase()}: ${money(game.price)} vs média ${money(marketPrice(game))})`, value: o.price / 1.5 },
+              { label: `Qualidade (${num(quality)} vs esperado ${expect})`, value: o.quality / 1.2 },
               { label: `Reputação da marca (${num(game.reputation)}/100)`, value: o.reputation / 1.2 },
               { label: `Pressão da concorrência (${num(comp)}/100)`, value: o.competition },
             ].map((f) => (
@@ -105,16 +110,20 @@ export function MarketTab({ goTo }: TabProps) {
 
       <div className="grid gap-5 lg:grid-cols-2">
         <Panel>
-          <PanelHeader icon={Globe2} title="Expansão de mercado" subtitle="Atuar em uma região maior aumenta a demanda, e a concorrência também." />
+          <PanelHeader icon={Globe2} title="Expansão de mercado" subtitle="Mais cidades aumentam a demanda, e a concorrência também." />
           <div className="flex flex-wrap gap-2">
             {SCOPES.map((s) => (
               <Badge key={s.level} tone={s.level === game.scopeLevel ? 'violet' : s.level < game.scopeLevel ? 'good' : 'default'}>
-                {s.label} · {s.multiplier}× demanda
+                {s.label} · {String(s.multiplier).replace('.', ',')}× demanda
               </Badge>
             ))}
+            <Badge tone={cities > 1 ? 'good' : 'default'}>
+              {cities} {cities === 1 ? 'cidade' : 'cidades'} · {presentStates(game).size} {presentStates(game).size === 1 ? 'estado' : 'estados'}
+            </Badge>
           </div>
-          <Button variant="outline" size="sm" className="mt-4" onClick={() => goTo('equipe')}>
-            Ver opções de expansão
+          <p className="mt-3 text-sm text-slate-400">Seu mercado hoje equivale a {marketReach(game).toFixed(1).replace('.', ',')}× o de um bairro.</p>
+          <Button variant="outline" size="sm" className="mt-4" onClick={() => goTo('expansao')}>
+            Abrir o mapa do Brasil
           </Button>
         </Panel>
         <TipCard title="Concorrência e posicionamento">

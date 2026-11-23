@@ -1,6 +1,6 @@
 import type React from 'react';
 import type { LucideIcon } from 'lucide-react';
-import { Building2, Hammer, Map, Megaphone, Monitor, Move, ShoppingBag, Target, UserPlus } from 'lucide-react';
+import { Building2, Hammer, Map, MapPinned, Megaphone, Monitor, Move, ShoppingBag, Target, UserPlus } from 'lucide-react';
 import { currentMission } from '../../game/missions';
 import { cn } from '../../lib/cn';
 import { useActiveGame, useUi } from '../../state/GameContext';
@@ -13,6 +13,7 @@ const TOOLS: { id: Exclude<PanelId, null>; label: string; icon: LucideIcon; key:
   { id: 'marketing', label: 'Marketing', icon: Megaphone, key: '4', color: 'from-pink-400 to-rose-500' },
   { id: 'computer', label: 'Empresa', icon: Monitor, key: '5', color: 'from-violet-400 to-indigo-500' },
   { id: 'missions', label: 'Missões', icon: Target, key: '6', color: 'from-yellow-300 to-amber-500' },
+  { id: 'map', label: 'Brasil', icon: MapPinned, key: '7', color: 'from-lime-400 to-emerald-600' },
 ];
 
 export { TOOLS };

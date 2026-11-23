@@ -1,4 +1,4 @@
-// Motor de simulação do STARTUP TYCOON.
+// Motor de simulação do CONSTRUA SEU IMPÉRIO.
 // Todas as fórmulas ficam aqui e são determinísticas: os resultados dependem
 // das decisões do jogador. A única variação é uma oscilação de mercado de ±5%
 // sorteada com a semente da partida.
@@ -9,17 +9,20 @@
 
 import {
   INFRA,
-  NEW_UNIT_RENT,
+  LOGISTICS_PER_STATE,
   ROLES,
-  SCOPES,
+  SAVINGS_RATE,
   TAX_RATE,
   TOOLS_COST,
   getChannel,
   getDifficulty,
+  getLoyalty,
   getObjective,
   getSegment,
+  getSupplier,
   qualityExpectation,
 } from './data';
+import { branchesMonthlyCost, expansionCompetition, marketReach, presentStates, unitCount } from './expansion';
 import { clamp } from './format';
 import { furnitureTotals } from './furniture';
 import { rngFor } from './rng';
@@ -51,13 +54,43 @@ export function totalDebt(state: GameState): number {
   return loans + Math.max(0, -state.cash);
 }
 
+/** Índice de custos: a inflação encarece produção, aluguel e ferramentas a cada mês. */
+export function costIndex(state: GameState, month = state.month): number {
+  return (1 + getDifficulty(state.player.difficulty).inflation) ** Math.max(0, month - 1);
+}
+
+/** Preço médio do mercado: a inflação também sobe os preços dos concorrentes. */
+export function marketPrice(state: GameState, month = state.month): number {
+  return getSegment(state.company.segment).refPrice * costIndex(state, month);
+}
+
+/** Empresas maiores ganham mais crédito no banco (limites de empréstimo, dívida e cheque especial). */
+export function creditScale(state: GameState): number {
+  return 1 + 0.5 * (state.level - 1);
+}
+
+export function overdraftLimit(state: GameState): number {
+  return getDifficulty(state.player.difficulty).overdraftLimit * creditScale(state);
+}
+
+export function debtLimit(state: GameState): number {
+  return getDifficulty(state.player.difficulty).debtLimit * creditScale(state);
+}
+
+/** O analista financeiro negocia juros menores. */
+export function interestFactor(state: GameState): number {
+  return 1 - 0.25 * state.employees.financeiro;
+}
+
+export function savingsRate(state: GameState): number {
+  return SAVINGS_RATE + 0.003 * state.employees.financeiro;
+}
+
 export function marketSize(state: GameState, month = state.month): number {
   const seg = getSegment(state.company.segment);
   const diff = getDifficulty(state.player.difficulty);
-  const scope = SCOPES[state.scopeLevel].multiplier;
-  const units = 1 + 0.25 * (state.units - 1);
   const growth = (1 + seg.trend) ** (month - 1);
-  return seg.baseDemand * scope * units * growth * diff.demandMult * (1 + modifierTotal(state, 'demand'));
+  return seg.baseDemand * marketReach(state) * growth * diff.demandMult * (1 + modifierTotal(state, 'demand'));
 }
 
 /** A capacidade é medida em vendas: produtos baratos saem em volume maior que produtos caros. */
@@ -79,20 +112,37 @@ function personality(state: GameState) {
   };
 }
 
-/** Vendas possíveis por mês (estrutura + móveis + unidades + gerente). */
+/** Vendas possíveis por mês (estrutura + móveis + filiais + gerente + logística). */
 export function capacity(state: GameState): number {
   const factor = capacityFactor(getSegment(state.company.segment).refPrice);
   const base = (INFRA[state.infraLevel].capacity + furnitureEffects(state).capacity) * factor;
-  return Math.round(base * (1 + 0.6 * (state.units - 1)) * (1 + 0.15 * state.employees.gerente) * (1 + modifierTotal(state, 'capacity')));
+  return Math.round(
+    base *
+      (1 + 0.6 * (unitCount(state) - 1)) *
+      (1 + 0.15 * state.employees.gerente) *
+      (1 + 0.08 * state.employees.logistica) *
+      (1 + modifierTotal(state, 'capacity')),
+  );
 }
 
 export function ticketMultiplier(state: GameState): number {
   return 1 + 0.15 * (state.productLines - 1);
 }
 
-/** Qualidade percebida: produto + equipamentos do escritório. */
+/** Qualidade percebida: produto + equipamentos do escritório + fornecedor. */
 export function effectiveQuality(state: GameState): number {
-  return Math.min(100, state.quality + furnitureEffects(state).quality);
+  return clamp(state.quality + furnitureEffects(state).quality + getSupplier(state.supplier).quality, 0, 100);
+}
+
+/** Qualidade que os clientes esperam: quanto maior a empresa, mais exigente o público. */
+export function expectedQuality(state: GameState): number {
+  return qualityExpectation(getSegment(state.company.segment)) + Math.round(1.5 * (state.level - 1));
+}
+
+/** Custo extra de levar produtos a outros estados. */
+export function logisticsFactor(state: GameState): number {
+  const extraStates = Math.max(0, presentStates(state).size - 1);
+  return 1 + LOGISTICS_PER_STATE * extraStates * Math.max(0, 1 - 0.35 * state.employees.logistica);
 }
 
 export function unitCost(state: GameState): number {
@@ -103,6 +153,10 @@ export function unitCost(state: GameState): number {
     (0.75 + (0.5 * state.quality) / 100) *
     (1 - 0.04 * state.infraLevel) *
     (1 - 0.03 * state.employees.desenvolvedor) *
+    (1 - 0.04 * state.employees.logistica) *
+    getSupplier(state.supplier).costMult *
+    logisticsFactor(state) *
+    costIndex(state) *
     (1 + modifierTotal(state, 'unitCost'))
   );
 }
@@ -112,10 +166,12 @@ export function effectivePrice(state: GameState): number {
   return state.price * (1 + modifierTotal(state, 'price'));
 }
 
+/** Concorrência: o segmento, os concorrentes do bairro, as cidades onde você está e a reação dos rivais ao seu crescimento. */
 export function competitionLevel(state: GameState): number {
   const seg = getSegment(state.company.segment);
   const competitor = state.world?.competitorOpen ? 3 : 0;
-  return clamp(seg.competition + state.scopeLevel * 5 + competitor + modifierTotal(state, 'competition') * 100, 0, 100);
+  const rivals = 1.5 * (state.level - 1);
+  return clamp(seg.competition + state.scopeLevel * 5 + competitor + expansionCompetition(state) + rivals + modifierTotal(state, 'competition') * 100, 0, 100);
 }
 
 export interface OfferBreakdown {
@@ -130,11 +186,11 @@ export interface OfferBreakdown {
 /** Atratividade da oferta: preço, qualidade, reputação e concorrência. */
 export function offer(state: GameState): OfferBreakdown {
   const seg = getSegment(state.company.segment);
-  const priceIndex = effectivePrice(state) / seg.refPrice;
+  const priceIndex = effectivePrice(state) / marketPrice(state);
   const k = 1.6 - seg.purchasingPower / 100;
   let price = clamp(1 - k * (priceIndex - 1), 0.25, 1.5);
   if (priceIndex < 0.65) price *= 0.9; // preço baixo demais gera desconfiança
-  const quality = 0.5 + 0.5 * clamp(effectiveQuality(state) / qualityExpectation(seg), 0, 1.4);
+  const quality = 0.5 + 0.5 * clamp(effectiveQuality(state) / expectedQuality(state), 0, 1.4);
   const reputation = 0.6 + (0.6 * state.reputation) / 100;
   const competition = 1 - (competitionLevel(state) / 100) * 0.45;
   const extras = (1 + furnitureEffects(state).conversion) * personality(state).conversion;
@@ -201,11 +257,23 @@ export function monthlySalaries(state: GameState): number {
   return ROLES.reduce((sum, r) => sum + r.salary * state.employees[r.id], 0) * (1 + state.salaryBonus);
 }
 
+/** Mensalidade do seguro empresarial: cresce com o tamanho da empresa. */
+export function insurancePremium(state: GameState): number {
+  const last = state.history[state.history.length - 1];
+  return Math.round((200 + 120 * unitCount(state) + 0.012 * (last?.revenue ?? 0)) / 10) * 10;
+}
+
+/** Fidelidade + seguro, por mês. */
+export function servicesCost(state: GameState): number {
+  return getLoyalty(state.loyalty).monthlyCost + (state.insurance ? insurancePremium(state) : 0);
+}
+
 export interface PlannedCosts {
   rent: number;
   tools: number;
   salaries: number;
   marketing: number;
+  services: number;
   loan: number;
   overdraftInterest: number;
   total: number;
@@ -214,14 +282,16 @@ export interface PlannedCosts {
 /** Gastos mensais já comprometidos (antes das vendas). */
 export function plannedCosts(state: GameState): PlannedCosts {
   const diff = getDifficulty(state.player.difficulty);
-  const fixedMod = (1 + modifierTotal(state, 'fixedCost')) * (1 - 0.08 * state.employees.gerente) * personality(state).fixedCost;
-  const rent = (INFRA[state.infraLevel].rent + NEW_UNIT_RENT * (state.units - 1)) * fixedMod;
+  const fixedMod =
+    (1 + modifierTotal(state, 'fixedCost')) * (1 - 0.08 * state.employees.gerente) * (1 - 0.05 * state.employees.financeiro) * personality(state).fixedCost * costIndex(state);
+  const rent = (INFRA[state.infraLevel].rent + branchesMonthlyCost(state)) * fixedMod;
   const tools = (TOOLS_COST + 120 * (state.productLines - 1)) * fixedMod;
   const salaries = monthlySalaries(state);
   const marketing = state.campaigns.filter((c) => isCampaignRunnable(state, c)).reduce((s, c) => s + c.budget, 0);
+  const services = servicesCost(state);
   const loan = state.loans.reduce((s, l) => s + l.monthlyPayment, 0);
-  const overdraftInterest = state.cash < 0 ? -state.cash * diff.overdraftInterest : 0;
-  return { rent, tools, salaries, marketing, loan, overdraftInterest, total: rent + tools + salaries + marketing + loan + overdraftInterest };
+  const overdraftInterest = state.cash < 0 ? -state.cash * diff.overdraftInterest * interestFactor(state) : 0;
+  return { rent, tools, salaries, marketing, services, loan, overdraftInterest, total: rent + tools + salaries + marketing + services + loan + overdraftInterest };
 }
 
 export interface SimulationOptions {
@@ -229,7 +299,7 @@ export interface SimulationOptions {
   noNoise?: boolean;
 }
 
-const zeroCosts = (): CostBreakdown => ({ variable: 0, salaries: 0, rent: 0, tools: 0, marketing: 0, taxes: 0, interest: 0, loan: 0 });
+const zeroCosts = (): CostBreakdown => ({ variable: 0, salaries: 0, rent: 0, tools: 0, marketing: 0, taxes: 0, interest: 0, loan: 0, services: 0 });
 
 /** Simula um dia útil. Não avança o calendário: isso é feito pelo motor do jogo. */
 export function simulateDay(state: GameState, options: SimulationOptions = {}): { state: GameState; day: DayResult } {
@@ -241,6 +311,7 @@ export function simulateDay(state: GameState, options: SimulationOptions = {}): 
   const work = state.world?.workHours ?? { desk: 0, counter: 0, production: 0 };
   const furn = furnitureEffects(state);
   const pers = personality(state);
+  const loyalty = getLoyalty(state.loyalty);
 
   const size = marketSize(state);
   const o = offer(state);
@@ -275,7 +346,8 @@ export function simulateDay(state: GameState, options: SimulationOptions = {}): 
 
   // --- Recompra -------------------------------------------------------------
   const whatsappBoost = state.activeCustomers > 0 ? 0.15 * Math.min(1, whatsappReach / state.activeCustomers) : 0;
-  const returning = state.activeCustomers * seg.repeatRate * clamp(state.satisfaction / 70, 0.4, 1.3) * (1 + whatsappBoost) * noise2 * DT;
+  const returning =
+    state.activeCustomers * seg.repeatRate * (1 + loyalty.repeatBoost) * clamp(state.satisfaction / 70, 0.4, 1.3) * (1 + whatsappBoost) * noise2 * DT;
 
   // --- Capacidade e vendas ----------------------------------------------------
   const monthlyCap = capacity(state);
@@ -287,7 +359,7 @@ export function simulateDay(state: GameState, options: SimulationOptions = {}): 
   const newServed = newDemand * fulfillment;
 
   const tMult = ticketMultiplier(state);
-  const ticket = effectivePrice(state) * tMult;
+  const ticket = effectivePrice(state) * tMult * (1 - loyalty.discount);
   const revenue = unitsSold * ticket;
   const uCost = unitCost(state);
 
@@ -296,10 +368,10 @@ export function simulateDay(state: GameState, options: SimulationOptions = {}): 
   const serviceCapMonthly = (80 + 180 * state.employees.atendente + 40 * sellers + 60 * state.employees.gerente) * factor + 0.3 * monthlyCap;
   const serviceRatio = unitsSold > 0 ? clamp((serviceCapMonthly * DT) / unitsSold, 0, 1) : 1;
   // Qualidade igual à esperada pelo mercado = 0,5; 30 pontos acima = 1.
-  const q = clamp((effectiveQuality(state) - qualityExpectation(seg) + 30) / 60, 0, 1);
+  const q = clamp((effectiveQuality(state) - expectedQuality(state) + 30) / 60, 0, 1);
   // Preço igual à média = 0,5; mais barato agrada, mais caro desagrada.
   const p = clamp(1.5 - o.priceIndex, 0, 1);
-  const target = clamp(100 * (0.4 * q + 0.25 * serviceRatio + 0.2 * p + 0.15 * fulfillment) + furn.satisfaction + Math.min(5, 0.5 * work.counter), 0, 100);
+  const target = clamp(100 * (0.4 * q + 0.25 * serviceRatio + 0.2 * p + 0.15 * fulfillment) + furn.satisfaction + loyalty.satisfaction + Math.min(5, 0.5 * work.counter), 0, 100);
   const satisfaction = orders > 0.05 ? clamp(state.satisfaction + (target - state.satisfaction) * (1 - 0.5 ** DT), 0, 100) : state.satisfaction;
 
   // --- Resultados das campanhas no dia ---------------------------------------
@@ -338,19 +410,29 @@ export function simulateDay(state: GameState, options: SimulationOptions = {}): 
     rent: planned.rent * DT,
     tools: planned.tools * DT,
     marketing: planned.marketing * DT,
+    services: planned.services * DT,
     taxes: revenue * TAX_RATE,
-    interest: state.cash < 0 ? -state.cash * diff.overdraftInterest * DT : 0,
+    interest: state.cash < 0 ? -state.cash * diff.overdraftInterest * interestFactor(state) * DT : 0,
   };
-  const totalCosts = costs.variable + costs.salaries + costs.rent + costs.tools + costs.marketing + costs.taxes + costs.interest;
+  const totalCosts = costs.variable + costs.salaries + costs.rent + costs.tools + costs.marketing + costs.services + costs.taxes + costs.interest;
   const profit = revenue - totalCosts;
 
   // --- Atualização do estado ------------------------------------------------------
-  const retention = clamp(0.55 + (satisfaction / 100) * 0.35, 0.5, 0.92);
+  const retention = clamp(0.55 + (satisfaction / 100) * 0.35 + loyalty.retention, 0.5, 0.95);
+  // Resgate automático: a aplicação cobre o caixa negativo.
+  let cash = state.cash + profit;
+  let savings = state.savings ?? 0;
+  if (cash < 0 && savings > 0) {
+    const cover = Math.min(savings, -cash);
+    cash += cover;
+    savings -= cover;
+  }
   const leadsConverted = leadNewRaw * DT * noise * satFactor;
   const followersGained = followersFromCampaigns + 250 * marketers * socialMod * DT + newServed * 0.3;
   const next: GameState = {
     ...state,
-    cash: state.cash + profit,
+    cash,
+    savings,
     satisfaction,
     reputation: clamp(state.reputation + ((satisfaction - 55) * 0.1 + Math.min(3, awarenessMonthly * 0.1)) * DT, 0, 100),
     awareness: clamp(state.awareness * 0.88 ** DT + awarenessMonthly * DT, 0, 100),
@@ -434,7 +516,7 @@ export function addDay(acc: DayResult | null, d: DayResult): DayResult {
   };
 }
 
-export type BaseReport = Omit<MonthReport, 'insights' | 'concept' | 'achievements' | 'levelUp'>;
+export type BaseReport = Omit<MonthReport, 'insights' | 'concept' | 'achievements' | 'levelUp' | 'goal'>;
 
 /** Fecha o mês: parcelas de empréstimos, efeitos temporários e relatório. */
 export function closeMonth(state: GameState, acc: DayResult, cashStart: number): { state: GameState; report: BaseReport } {
@@ -443,7 +525,7 @@ export function closeMonth(state: GameState, acc: DayResult, cashStart: number):
   let principalPaid = 0;
   const loans = state.loans
     .map((loan) => {
-      const interest = loan.balance * diff.loanInterest;
+      const interest = loan.balance * diff.loanInterest * interestFactor(state);
       const principal = Math.min(loan.balance, loan.monthlyPayment - interest);
       loanInterest += interest;
       principalPaid += principal;
@@ -453,8 +535,10 @@ export function closeMonth(state: GameState, acc: DayResult, cashStart: number):
 
   const costs = { ...acc.costs, interest: acc.costs.interest + loanInterest, loan: principalPaid };
   const totalCosts = acc.totalCosts + loanInterest;
-  const profit = acc.profit - loanInterest;
-  const cashEnd = state.cash - loanInterest - principalPaid;
+  // O rendimento da aplicação cai no caixa e entra no resultado (receita financeira).
+  const savingsIncome = (state.savings ?? 0) * savingsRate(state);
+  const profit = acc.profit - loanInterest + savingsIncome;
+  const cashEnd = state.cash - loanInterest - principalPaid + savingsIncome;
   const size = marketSize(state);
   const o = offer(state);
 
@@ -509,6 +593,7 @@ export function closeMonth(state: GameState, acc: DayResult, cashStart: number):
       cashEnd,
       debt,
       marketShare: clamp(state.activeCustomers / size, 0, 1),
+      savingsIncome,
       campaigns: acc.campaigns,
     },
   };
@@ -538,12 +623,12 @@ export function projectMonth(state: GameState) {
   return simulateMonth(state, { noNoise: true }).report;
 }
 
-/** Valor estimado da empresa = 2× lucro anual + 0,5× receita anual + caixa − dívidas
+/** Valor estimado da empresa = 2× lucro anual + 0,5× receita anual + caixa + aplicações − dívidas
  *  (lucro e receita anuais projetados pela média dos últimos 3 meses). */
 export function valuation(state: GameState): number {
   const recent = state.history.slice(-3);
   const avgProfit = recent.length ? recent.reduce((s, r) => s + r.profit, 0) / recent.length : 0;
   const avgRevenue = recent.length ? recent.reduce((s, r) => s + r.revenue, 0) / recent.length : 0;
-  const value = Math.max(0, avgProfit) * 12 * 2 + avgRevenue * 12 * 0.5 + state.cash - totalDebt(state);
+  const value = Math.max(0, avgProfit) * 12 * 2 + avgRevenue * 12 * 0.5 + state.cash + (state.savings ?? 0) - totalDebt(state);
   return Math.max(0, value);
 }

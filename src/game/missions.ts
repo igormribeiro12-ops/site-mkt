@@ -2,7 +2,8 @@
 // recompensa em dinheiro e pode liberar novos itens.
 
 import type { LucideIcon } from 'lucide-react';
-import { Armchair, Building2, Crown, Megaphone, PiggyBank, Rocket, Store, UserPlus, Users } from 'lucide-react';
+import { Armchair, Building2, Castle, Crown, MapPin, Megaphone, PiggyBank, Rocket, Route, Store, Target, UserPlus, Users } from 'lucide-react';
+import { presentStates } from './expansion';
 import type { GameState } from './types';
 
 export interface MissionDef {
@@ -86,6 +87,15 @@ export const MISSIONS: MissionDef[] = [
     check: (s) => s.history.some((h) => h.profit > 0),
   },
   {
+    id: 'desafio',
+    title: 'Cumpra um desafio do mês',
+    description: 'Todo mês chega uma meta nova com prêmio em dinheiro.',
+    hint: 'O desafio aparece no topo da tela e no Painel do computador.',
+    reward: 800,
+    icon: Target,
+    check: (s) => s.goalsDone >= 1,
+  },
+  {
     id: 'clientes100',
     title: 'Conquiste 100 clientes',
     description: 'Sua marca está ficando conhecida.',
@@ -96,21 +106,48 @@ export const MISSIONS: MissionDef[] = [
   },
   {
     id: 'unidade',
-    title: 'Conquiste novos territórios',
-    description: 'Expanda para a cidade ou abra uma nova unidade.',
-    hint: 'Visite a imobiliária na cidade (saia pela porta).',
+    title: 'Conquiste a sua cidade',
+    description: 'Expanda para a cidade toda ou abra uma nova unidade.',
+    hint: 'Visite a imobiliária na cidade (saia pela porta) ou use Comprar → Expansão.',
     reward: 3000,
     icon: Store,
-    check: (s) => s.scopeLevel > 0 || s.units > 1,
+    check: (s) => s.scopeLevel > 0 || s.branches.length > 0,
+  },
+  {
+    id: 'filial',
+    title: 'Abra uma filial em outra cidade',
+    description: 'Leve a sua marca para além da cidade da sede.',
+    hint: 'Aperte 7 para abrir o mapa do Brasil e escolha uma cidade do seu estado ou da sua região.',
+    reward: 3000,
+    icon: MapPin,
+    check: (s) => s.branches.some((b) => b.city !== s.homeCity),
   },
   {
     id: 'grande',
     title: 'Torne-se uma Grande companhia',
     description: 'Alcance o nível 5.',
-    hint: 'Receita, clientes, reputação e satisfação levam ao topo.',
+    hint: 'Receita, clientes, reputação, satisfação e presença em 2 cidades levam ao topo.',
     reward: 5000,
     icon: Crown,
     check: (s) => s.level >= 5,
+  },
+  {
+    id: 'estados',
+    title: 'Esteja em 3 estados',
+    description: 'Uma marca conhecida em várias partes do Brasil.',
+    hint: 'No mapa do Brasil, abra filiais em outros estados. Cada estado novo cobra a inscrição estadual.',
+    reward: 6000,
+    icon: Route,
+    check: (s) => presentStates(s).size >= 3,
+  },
+  {
+    id: 'imperio',
+    title: 'Construa seu império',
+    description: 'Alcance o nível 6: Império empresarial.',
+    hint: 'Veja no Painel os requisitos que ainda faltam.',
+    reward: 10000,
+    icon: Castle,
+    check: (s) => s.level >= 6,
   },
 ];
 
